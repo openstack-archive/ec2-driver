@@ -1,9 +1,9 @@
 # ThoughtWorks OpenStack to EC2 Driver
 
-Enjoy the benifits of the private cloud while also not being limited by it. 
-Just like the present drivers let you leverage the various bankends like VMWare and Xen, this driver will let you use the public cloud to burst your cloud to. For now we are focusing on being able to burst to Amazon EC2.
+Enjoy the benefits of a private cloud without being limited by it. 
+While current drivers let you leverage backends such as VMWare and Xen, this driver will allow you to burst your private cloud into a public cloud. For now we are focusing on being able to burst to Amazon EC2.
 
-Using the native OpenStack Dashboard or APIs you would be able to manage the EC2 cloud. 
+Using the native OpenStack Dashboard or APIs, you would be able to manage an EC2 cloud. 
 
 
 ## Getting Started
