@@ -5,7 +5,6 @@ Just like the present drivers let you leverage the various bankends like VMWare 
 
 Using the native OpenStack Dashboard or APIs you would be able to manage the EC2 cloud. 
 
-
 ## Getting Started
 
 * OpenStack Icehouse
