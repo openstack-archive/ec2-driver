@@ -126,7 +126,7 @@ class EC2Driver(driver.ComputeDriver):
 
         self.reservation = self.ec2_conn.get_all_reservations()
 
-        if not _EC2_NODES:
+        if not '_EC2_NODES' in globals():
             set_nodes([CONF.host])
 
     def init_host(self, host):
