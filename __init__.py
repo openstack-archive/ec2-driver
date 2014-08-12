@@ -12,6 +12,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from nova.virt.ec2api import ec2driver
+from nova.virt.ec2 import ec2driver
 
 EC2Driver = ec2driver.EC2Driver
