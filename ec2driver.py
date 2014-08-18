@@ -244,8 +244,7 @@ class EC2Driver(driver.ComputeDriver):
         name = instance['name']
         if name in self.instances:
             del self.instances[name]
-
-            #Now deleting this instance in EC2 as well
+            
             instance_id = instance_map[name]
             self.ec2_conn.stop_instances(instance_ids=[instance_id], force=True)
             self.ec2_conn.terminate_instances(instance_ids=[instance_id])
@@ -494,9 +493,6 @@ class EC2Driver(driver.ComputeDriver):
 
     def list_instance_uuids(self):
         return []
-
-    def __unicode__(self):
-        return unicode(self.campsite)
 
 
 class EC2VirtAPI(virtapi.VirtAPI):
