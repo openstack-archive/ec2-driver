@@ -11,9 +11,4 @@ Using the native OpenStack Dashboard or APIs you would be able to manage the EC2
 * Python 2.7 and above
 * Amazon Web Service (AWS) SDK for Python --  Boto 2.31.1
 
-## Setting up Dev box.
-Download the Box file.
-Add the box file to your vagrant using the following command
-vagrant box add trusty-devstack.box --name "trusty-devstack"
-
 ##To Be Continued
