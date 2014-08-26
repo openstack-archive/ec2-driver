@@ -154,6 +154,7 @@ class EC2Driver(driver.ComputeDriver):
         reservation = self.ec2_conn.run_instances(aws_ami, instance_type=instance_type)
         ec2_instance = reservation.instances
         instance_map[name] = ec2_instance[0].id
+        instance['metadata'].update({'ec2_id':ec2_instance[0].id})
 
     def live_snapshot(self, context, instance, name, update_task_state):
         if instance['name'] not in self.instances:
