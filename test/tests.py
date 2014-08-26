@@ -4,10 +4,10 @@ import json
 import time
 
 from novaclient.v1_1 import client
-from credentials import get_nova_creds
+from ..credentials import get_nova_creds
 
 from boto import ec2
-from ec2driver_config import *
+from ..ec2driver_config import *
 
 
 class TestSpawn(unittest.TestCase):
