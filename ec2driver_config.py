@@ -21,5 +21,3 @@ aws_secret_access_key = "FMld6m8kok9jpxBkORST5xfbZSod7mVm9ChDgttS"
 
 aws_ami = "ami-864d84ee"
 instance_type = "t2.micro"
-
-instance_map = {}

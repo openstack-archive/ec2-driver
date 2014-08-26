@@ -147,13 +147,12 @@ class EC2Driver(driver.ComputeDriver):
               admin_password, network_info=None, block_device_info=None):
         name = instance['name']
         state = power_state.RUNNING
-        EC2_instance = EC2Instance(name, state)
-        self.instances[name] = EC2_instance
+        ec2_instance = EC2Instance(name, state)
+        self.instances[name] = ec2_instance
 
         #Creating the EC2 instance
         reservation = self.ec2_conn.run_instances(aws_ami, instance_type=instance_type)
         ec2_instance = reservation.instances
-        instance_map[name] = ec2_instance[0].id
         instance['metadata'].update({'ec2_id':ec2_instance[0].id})
 
     def live_snapshot(self, context, instance, name, update_task_state):
@@ -245,10 +244,9 @@ class EC2Driver(driver.ComputeDriver):
         name = instance['name']
         if name in self.instances:
             del self.instances[name]
-            
-            instance_id = instance_map[name]
-            self.ec2_conn.stop_instances(instance_ids=[instance_id], force=True)
-            self.ec2_conn.terminate_instances(instance_ids=[instance_id])
+            ec2_id = instance['metadata']['ec2_id']
+            self.ec2_conn.stop_instances(instance_ids=[ec2_id], force=True)
+            self.ec2_conn.terminate_instances(instance_ids=[ec2_id])
 
         else:
             LOG.warning(_("Key '%(key)s' not in instances '%(inst)s'") %
