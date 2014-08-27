@@ -29,6 +29,7 @@ from nova import db
 from nova import exception
 from nova.openstack.common.gettextutils import _
 from nova.openstack.common import log as logging
+from nova.openstack.common import loopingcall
 from nova.virt import driver
 from nova.virt import virtapi
 
@@ -168,12 +169,17 @@ class EC2Driver(driver.ComputeDriver):
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
 
-        key = instance['name']
-        if key in self.instances:
-            del self.instances[key]
+        if reboot_type == 'SOFT':
+            ec2_id = instance['metadata']['ec2_id']
+            self.ec2_conn.reboot_instances(instance_ids=[ec2_id], dry_run=False)
+        elif reboot_type == 'HARD':
+            self._hard_reboot(context, instance, network_info, block_device_info)
 
-        #Now deleting this instance in EC2 as well
-        pass
+    def _hard_reboot(self, context, instance, network_info, block_device_info=None):
+        LOG.info("Starting Reboot.")
+        self.power_off(instance)
+        self.power_on(context, instance, network_info, block_device)
+        LOG.info("Hard Reboot Complete.")
 
     @staticmethod
     def get_host_ip_addr():
@@ -215,25 +221,48 @@ class EC2Driver(driver.ComputeDriver):
         pass
 
     def power_off(self, instance):
-
-        name = instance['name']
-        state = power_state.SHUTDOWN
-        ec2_instance = EC2Instance(name, state)
-        self.instances[name] = ec2_instance
-
         # Powering off the EC2 instance
         ec2_id = instance['metadata']['ec2_id']
         self.ec2_conn.stop_instances(instance_ids=[ec2_id], force=False, dry_run=False)
 
-    def power_on(self, context, instance, network_info, block_device_info):
-        name = instance['name']
-        state = power_state.RUNNING
-        ec2_instance = EC2Instance(name, state)
-        self.instances[name] = ec2_instance
+        def _wait_for_power_off():
+            """Called at an interval until the VM is shut down."""
+            ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])
+            state = ec2_instance[0].state
+            LOG.info(state)
 
-        # Powering off the EC2 instance
+            if state == "stopped":
+                LOG.info("Instance stopped successfully.")
+                name = instance['name']
+                state = power_state.SHUTDOWN
+                ec2_instance = EC2Instance(name, state)
+                self.instances[name] = ec2_instance
+                raise loopingcall.LoopingCallDone()
+
+        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_power_off)
+        timer.start(interval=0.5).wait()
+
+    def power_on(self, context, instance, network_info, block_device_info):
+        # Powering on the EC2 instance
         ec2_id = instance['metadata']['ec2_id']
         self.ec2_conn.start_instances(instance_ids=[ec2_id], dry_run=False)
+
+        def _wait_for_power_on():
+            """Called at an interval until the VM is running again."""
+            ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])
+            state = ec2_instance[0].state
+            LOG.info(state)
+
+            if state == "running":
+                LOG.info("Instance started successfully.")
+                name = instance['name']
+                state = power_state.RUNNING
+                ec2_instance = EC2Instance(name, state)
+                self.instances[name] = ec2_instance
+                raise loopingcall.LoopingCallDone()
+
+        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_power_on)
+        timer.start(interval=0.5).wait()
 
     def soft_delete(self, instance):
         pass
