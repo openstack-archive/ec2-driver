@@ -146,15 +146,28 @@ class EC2Driver(driver.ComputeDriver):
 
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None):
-        name = instance['name']
-        state = power_state.RUNNING
-        ec2_instance = EC2Instance(name, state)
-        self.instances[name] = ec2_instance
-
         #Creating the EC2 instance
         reservation = self.ec2_conn.run_instances(aws_ami, instance_type=instance_type)
         ec2_instance = reservation.instances
         instance['metadata'].update({'ec2_id':ec2_instance[0].id})
+
+        ec2_id = ec2_instance[0].id
+        def _wait_for_power_on():
+            """Called at an interval until the VM is running again."""
+            ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])
+            state = ec2_instance[0].state
+            LOG.info(state)
+
+            if state == "running":
+                LOG.info("Instance started successfully.")
+                name = instance['name']
+                state = power_state.RUNNING
+                ec2_instance = EC2Instance(name, state)
+                self.instances[name] = ec2_instance
+                raise loopingcall.LoopingCallDone()
+
+        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_power_on)
+        timer.start(interval=0.5).wait()
 
     def live_snapshot(self, context, instance, name, update_task_state):
         if instance['name'] not in self.instances:
@@ -286,12 +299,30 @@ class EC2Driver(driver.ComputeDriver):
                 destroy_disks=True, migrate_data=None):
         name = instance['name']
         if name in self.instances:
-            del self.instances[name]
+
 
             #Deleting the instance from EC2
             ec2_id = instance['metadata']['ec2_id']
             self.ec2_conn.stop_instances(instance_ids=[ec2_id], force=True)
             self.ec2_conn.terminate_instances(instance_ids=[ec2_id])
+
+            def _wait_for_termination():
+                """Called at an interval until the VM is shut down."""
+                ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])
+                state = ec2_instance[0].state
+                LOG.info(state)
+
+                if state == "terminated":
+                    LOG.info("Instance destroyed successfully.")
+                    name = instance['name']
+                    state = power_state.SHUTDOWN
+                    ec2_instance = EC2Instance(name, state)
+                    self.instances[name] = ec2_instance
+                    del self.instances[name]
+                    raise loopingcall.LoopingCallDone()
+
+            timer = loopingcall.FixedIntervalLoopingCall(_wait_for_termination)
+            timer.start(interval=0.5).wait()
 
         else:
             LOG.warning(_("Key '%(key)s' not in instances '%(inst)s'") %
