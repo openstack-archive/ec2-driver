@@ -145,7 +145,6 @@ class EC2Driver(driver.ComputeDriver):
 
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None):
-        LOG.info("__Context__ %s, __instance__ %s, __image_meta__ %s, __injected_files__ %s, __admin_password__ %s" % (context, instance, image_meta, injected_files, admin_password))
         name = instance['name']
         state = power_state.RUNNING
         ec2_instance = EC2Instance(name, state)
@@ -174,7 +173,6 @@ class EC2Driver(driver.ComputeDriver):
             del self.instances[key]
 
         #Now deleting this instance in EC2 as well
-        instance_id = instance_map[key]
         pass
 
     @staticmethod
@@ -217,10 +215,25 @@ class EC2Driver(driver.ComputeDriver):
         pass
 
     def power_off(self, instance):
-        pass
+
+        name = instance['name']
+        state = power_state.SHUTDOWN
+        ec2_instance = EC2Instance(name, state)
+        self.instances[name] = ec2_instance
+
+        # Powering off the EC2 instance
+        ec2_id = instance['metadata']['ec2_id']
+        self.ec2_conn.stop_instances(instance_ids=[ec2_id], force=False, dry_run=False)
 
     def power_on(self, context, instance, network_info, block_device_info):
-        pass
+        name = instance['name']
+        state = power_state.RUNNING
+        ec2_instance = EC2Instance(name, state)
+        self.instances[name] = ec2_instance
+
+        # Powering off the EC2 instance
+        ec2_id = instance['metadata']['ec2_id']
+        self.ec2_conn.start_instances(instance_ids=[ec2_id], dry_run=False)
 
     def soft_delete(self, instance):
         pass
@@ -245,6 +258,8 @@ class EC2Driver(driver.ComputeDriver):
         name = instance['name']
         if name in self.instances:
             del self.instances[name]
+
+            #Deleting the instance from EC2
             ec2_id = instance['metadata']['ec2_id']
             self.ec2_conn.stop_instances(instance_ids=[ec2_id], force=True)
             self.ec2_conn.terminate_instances(instance_ids=[ec2_id])
