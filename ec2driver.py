@@ -145,6 +145,7 @@ class EC2Driver(driver.ComputeDriver):
 
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None):
+        LOG.info("__Context__ %s, __instance__ %s, __image_meta__ %s, __injected_files__ %s, __admin_password__ %s" % (context, instance, image_meta, injected_files, admin_password))
         name = instance['name']
         state = power_state.RUNNING
         ec2_instance = EC2Instance(name, state)
