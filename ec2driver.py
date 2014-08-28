@@ -144,6 +144,22 @@ class EC2Driver(driver.ComputeDriver):
         """Unplug VIFs from networks."""
         pass
 
+    def _wait_for_state(self, instance, ec2_id, desired_state, desired_power_state):
+        def _wait_for_power_state():
+            """Called at an interval until the VM is running again."""
+            ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])
+            state = ec2_instance[0].state
+
+            if state == desired_state:
+                LOG.info("Instance has changed state to %s." % desired_state)
+                name = instance['name']
+                ec2_instance = EC2Instance(name, desired_power_state)
+                self.instances[name] = ec2_instance
+                raise loopingcall.LoopingCallDone()
+
+        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_power_state)
+        timer.start(interval=0.5).wait()
+
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None):
         #Creating the EC2 instance
@@ -153,22 +169,7 @@ class EC2Driver(driver.ComputeDriver):
         instance['metadata'].update({'ec2_id':ec2_instance[0].id})
 
         ec2_id = ec2_instance[0].id
-        def _wait_for_power_on():
-            """Called at an interval until the VM is running again."""
-            ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])
-            state = ec2_instance[0].state
-            LOG.info(state)
-
-            if state == "running":
-                LOG.info("Instance started successfully.")
-                name = instance['name']
-                state = power_state.RUNNING
-                ec2_instance = EC2Instance(name, state)
-                self.instances[name] = ec2_instance
-                raise loopingcall.LoopingCallDone()
-
-        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_power_on)
-        timer.start(interval=0.5).wait()
+        self._wait_for_state(instance, ec2_id, "running", power_state.RUNNING)
 
     def live_snapshot(self, context, instance, name, update_task_state):
         if instance['name'] not in self.instances:
@@ -238,45 +239,14 @@ class EC2Driver(driver.ComputeDriver):
         # Powering off the EC2 instance
         ec2_id = instance['metadata']['ec2_id']
         self.ec2_conn.stop_instances(instance_ids=[ec2_id], force=False, dry_run=False)
-
-        def _wait_for_power_off():
-            """Called at an interval until the VM is shut down."""
-            ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])
-            state = ec2_instance[0].state
-            LOG.info(state)
-
-            if state == "stopped":
-                LOG.info("Instance stopped successfully.")
-                name = instance['name']
-                state = power_state.SHUTDOWN
-                ec2_instance = EC2Instance(name, state)
-                self.instances[name] = ec2_instance
-                raise loopingcall.LoopingCallDone()
-
-        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_power_off)
-        timer.start(interval=0.5).wait()
+        self._wait_for_state(instance, ec2_id, "stopped", power_state.SHUTDOWN)
 
     def power_on(self, context, instance, network_info, block_device_info):
         # Powering on the EC2 instance
         ec2_id = instance['metadata']['ec2_id']
         self.ec2_conn.start_instances(instance_ids=[ec2_id], dry_run=False)
 
-        def _wait_for_power_on():
-            """Called at an interval until the VM is running again."""
-            ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])
-            state = ec2_instance[0].state
-            LOG.info(state)
-
-            if state == "running":
-                LOG.info("Instance started successfully.")
-                name = instance['name']
-                state = power_state.RUNNING
-                ec2_instance = EC2Instance(name, state)
-                self.instances[name] = ec2_instance
-                raise loopingcall.LoopingCallDone()
-
-        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_power_on)
-        timer.start(interval=0.5).wait()
+        self._wait_for_state(instance, ec2_id, "running", power_state.RUNNING)
 
     def soft_delete(self, instance):
         pass
@@ -306,24 +276,7 @@ class EC2Driver(driver.ComputeDriver):
             ec2_id = instance['metadata']['ec2_id']
             self.ec2_conn.stop_instances(instance_ids=[ec2_id], force=True)
             self.ec2_conn.terminate_instances(instance_ids=[ec2_id])
-
-            def _wait_for_termination():
-                """Called at an interval until the VM is shut down."""
-                ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])
-                state = ec2_instance[0].state
-                LOG.info(state)
-
-                if state == "terminated":
-                    LOG.info("Instance destroyed successfully.")
-                    name = instance['name']
-                    state = power_state.SHUTDOWN
-                    ec2_instance = EC2Instance(name, state)
-                    self.instances[name] = ec2_instance
-                    del self.instances[name]
-                    raise loopingcall.LoopingCallDone()
-
-            timer = loopingcall.FixedIntervalLoopingCall(_wait_for_termination)
-            timer.start(interval=0.5).wait()
+            self._wait_for_state(instance, ec2_id, "terminated", power_state.SHUTDOWN)
 
         else:
             LOG.warning(_("Key '%(key)s' not in instances '%(inst)s'") %
