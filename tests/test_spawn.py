@@ -35,15 +35,6 @@ class TestSpawn(unittest.TestCase):
 
     def tearDown(self):
         print "Cleanup: Destroying the instance used for testing"
-        ec2_id = self.server.metadata['ec2_id']
-        ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False,
-                                                        max_results=None)
-        # EC2 statecode: 16->Running, 32->Shutting Down
-        while ec2_instance[0].state_code != 16:
-            time.sleep(10)
-            ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False,
-                                                            max_results=None)
-            print ec2_instance[0].state, ec2_instance[0].state_code
         self.server.delete()
 
 if __name__ == '__main__':
