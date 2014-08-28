@@ -147,6 +147,7 @@ class EC2Driver(driver.ComputeDriver):
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None):
         #Creating the EC2 instance
+        instance_type = flavor_map[instance.get_flavor().name]
         reservation = self.ec2_conn.run_instances(aws_ami, instance_type=instance_type)
         ec2_instance = reservation.instances
         instance['metadata'].update({'ec2_id':ec2_instance[0].id})
