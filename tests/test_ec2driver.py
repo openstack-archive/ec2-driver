@@ -15,38 +15,32 @@ class EC2DriverTest(unittest.TestCase):
         self.ec2_conn = ec2.connect_to_region(aws_region, aws_access_key_id=aws_access_key_id,
                                               aws_secret_access_key=aws_secret_access_key)
         self.creds = get_nova_creds()
+        self.nova = client.Client(**self.creds)
         self.server = None
 
     # @unittest.skip("For fun")
-    def test_spawn(self):
+    def spawn_ec2_instance(self):
         print "Spawning an instance"
-        nova = client.Client(**self.creds)
-        image = nova.images.find(name="cirros-0.3.1-x86_64-uec")
-        flavor = nova.flavors.find(name="m1.tiny")
-        self.server = nova.servers.create(name="cirros-test", image=image.id, flavor=flavor.id)
-        instance = nova.servers.get(self.server.id)
+        image = self.nova.images.find(name="cirros-0.3.1-x86_64-uec")
+        flavor = self.nova.flavors.find(name="m1.tiny")
+        self.server = self.nova.servers.create(name="cirros-test", image=image.id, flavor=flavor.id)
+        instance = self.nova.servers.get(self.server.id)
         while instance.status != 'ACTIVE':
             time.sleep(10)
-            instance = nova.servers.get(self.server.id)
+            instance = self.nova.servers.get(self.server.id)
+        return instance
 
-        instance = self.ec2_conn.get_only_instances(instance_ids=[self.server.metadata['ec2_id']], filters=None,
+    def test_spawn(self):
+        self.spawn_ec2_instance()
+
+        ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[self.server.metadata['ec2_id']], filters=None,
                                                     dry_run=False, max_results=None)
 
-        self.assertEqual(len(instance), 1)
+        self.assertEqual(len(ec2_instance), 1)
 
     def test_destroy(self):
-        print "Spawning an instance"
-        nova = client.Client(**self.creds)
-        image = nova.images.find(name="cirros-0.3.1-x86_64-uec")
-        flavor = nova.flavors.find(name="m1.tiny")
-        server = nova.servers.create(name="cirros-test", image=image.id, flavor=flavor.id)
+        instance = self.spawn_ec2_instance()
 
-        instance = nova.servers.get(server.id)
-        while instance.status != 'ACTIVE':
-            time.sleep(10)
-            instance = nova.servers.get(server.id)
-
-        instance = nova.servers.get(server.id)
         print instance.status
         ec2_id = instance.metadata['ec2_id']
 
@@ -76,26 +70,13 @@ class EC2DriverTest(unittest.TestCase):
         self.assertEquals(ec2_instance[0].state, "shutting-down")
 
     def test_power_off(self):
-        print "Spawning an instance"
-        nova = client.Client(**self.creds)
-        image = nova.images.find(name="cirros-0.3.1-x86_64-uec")
-        flavor = nova.flavors.find(name="m1.tiny")
-        self.server = nova.servers.create(name="cirros-test", image=image.id, flavor=flavor.id)
-        instance = nova.servers.get(self.server.id)
-        while instance.status != 'ACTIVE':
-            time.sleep(10)
-            instance = nova.servers.get(self.server.id)
-
-
+        instance = self.spawn_ec2_instance()
         #Send poweroff to the instance
-        nova.servers.stop(instance)
+        self.nova.servers.stop(instance)
 
         while instance.status != 'SHUTOFF':
             time.sleep(5)
-            instance = nova.servers.get(self.server.id)
-            print "while: %s" % instance.status
-        instance = nova.servers.get(self.server.id)
-        print "Status after POWEROFF ing: %s" % instance.status
+            instance = self.nova.servers.get(self.server.id)
 
         #assert power off
         ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[self.server.metadata['ec2_id']], filters=None,
