@@ -27,7 +27,7 @@ class TestDestroy(unittest.TestCase):
         while instance.status != 'ACTIVE':
             time.sleep(10)
             instance = nova.servers.get(server.id)
-        
+
         instance = nova.servers.get(server.id)
         print instance.status
         ec2_id = instance.metadata['ec2_id']
@@ -35,7 +35,7 @@ class TestDestroy(unittest.TestCase):
         ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False,
                                                         max_results=None)
         # EC2 statecode: 16->Running, 32->Shutting Down
-        while ec2_instance[0].state_code != 16:
+        while ec2_instance[0].state != "running":
             time.sleep(10)
             ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False,
                                                             max_results=None)
@@ -46,7 +46,7 @@ class TestDestroy(unittest.TestCase):
         ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False,
                                                         max_results=None)
         # EC2 statecode: 16->Running, 32->Shutting Down
-        while ec2_instance[0].state_code != 32:
+        while ec2_instance[0].state != "shutting-down":
             time.sleep(10)
             ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False,
                                                             max_results=None)
@@ -55,8 +55,7 @@ class TestDestroy(unittest.TestCase):
         ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False,
                                                         max_results=None)
         
-        shutting_down_state_code = 32
-        self.assertEquals(ec2_instance[0].state_code, shutting_down_state_code)
+        self.assertEquals(ec2_instance[0].state, "shutting-down")
 
 if __name__ == '__main__':
     unittest.main()

@@ -31,7 +31,7 @@ class TestSpawn(unittest.TestCase):
         instance = self.ec2_conn.get_only_instances(instance_ids=[self.server.metadata['ec2_id']], filters=None,
                                                     dry_run=False, max_results=None)
 
-        self.assertTrue(len(instance) == 1)
+        self.assertEqual(len(instance), 1)
 
     def tearDown(self):
         print "Cleanup: Destroying the instance used for testing"
