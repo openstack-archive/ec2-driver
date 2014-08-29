@@ -18,7 +18,6 @@ class EC2DriverTest(unittest.TestCase):
         self.nova = client.Client(**self.creds)
         self.server = None
 
-    # @unittest.skip("For fun")
     def spawn_ec2_instance(self):
         print "Spawning an instance"
         image = self.nova.images.find(name="cirros-0.3.1-x86_64-uec")
