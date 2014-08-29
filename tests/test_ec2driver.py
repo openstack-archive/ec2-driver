@@ -86,6 +86,11 @@ class EC2DriverTest(unittest.TestCase):
         #Send reboot to the instance with reboot_type = 'soft'
         self.nova.servers.reboot(instance, client.servers.REBOOT_SOFT)
 
+        # we are waiting for the status to actually get to 'Reboot' before beginning to wait for it to go to 'Active' status
+        while instance.status != 'REBOOT':
+            # We don't sleep here because the soft reboot may take less than a second
+            instance = self.nova.servers.get(self.server.id)
+
         while instance.status != 'ACTIVE':
             time.sleep(5)
             instance = self.nova.servers.get(self.server.id)
@@ -100,7 +105,11 @@ class EC2DriverTest(unittest.TestCase):
         #Send reboot to the instance with reboot_type = 'soft'
         self.nova.servers.reboot(instance, client.servers.REBOOT_HARD)
 
-        time.sleep(10)
+        # we are waiting for the status to actually get to 'Hard Reboot' before beginning to wait for it to go to 'Active' status
+        while instance.status != 'HARD_REBOOT':
+            time.sleep(5)
+            instance = self.nova.servers.get(self.server.id)
+
         while instance.status != 'ACTIVE':
             time.sleep(5)
             instance = self.nova.servers.get(self.server.id)
