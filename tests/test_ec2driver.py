@@ -62,7 +62,6 @@ class EC2DriverTest(unittest.TestCase):
             time.sleep(10)
             ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False,
                                                             max_results=None)
-            print ec2_instance[0].state, ec2_instance[0].state_code
 
         ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False,
                                                         max_results=None)
@@ -82,6 +81,35 @@ class EC2DriverTest(unittest.TestCase):
         ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[self.server.metadata['ec2_id']], filters=None,
                                                         dry_run=False, max_results=None)[0]
         self.assertEqual(ec2_instance.state, "stopped")
+
+    def test_soft_reboot(self):
+        instance = self.spawn_ec2_instance()
+        #Send reboot to the instance with reboot_type = 'soft'
+        self.nova.servers.reboot(instance, client.servers.REBOOT_SOFT)
+
+        while instance.status != 'ACTIVE':
+            time.sleep(5)
+            instance = self.nova.servers.get(self.server.id)
+
+        #assert restarted
+        ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[self.server.metadata['ec2_id']], filters=None,
+                                                        dry_run=False, max_results=None)[0]
+        self.assertEqual(ec2_instance.state, "running")
+
+    def test_hard_reboot(self):
+        instance = self.spawn_ec2_instance()
+        #Send reboot to the instance with reboot_type = 'soft'
+        self.nova.servers.reboot(instance, client.servers.REBOOT_HARD)
+
+        time.sleep(10)
+        while instance.status != 'ACTIVE':
+            time.sleep(5)
+            instance = self.nova.servers.get(self.server.id)
+
+        #assert restarted
+        ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[self.server.metadata['ec2_id']], filters=None,
+                                                        dry_run=False, max_results=None)[0]
+        self.assertEqual(ec2_instance.state, "running")
 
     def tearDown(self):
         if self.server is not None:
