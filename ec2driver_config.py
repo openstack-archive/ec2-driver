@@ -24,3 +24,10 @@ instance_type = "t2.micro"
 
 flavor_map = {'m1.tiny': 't2.micro', 'm1.small': 't2.small', 'm1.medium': 't2.medium', 'm1.large': 'c3.xlarge',
               'm1.xlarge': 'c3.2xlarge'}
+image_map = {}
+
+#The limit on maximum resources you could have in the AWS EC2.
+
+cpu_units = 100
+memory_in_mbs = 88192
+disk_in_gb = 1028

@@ -121,7 +121,7 @@ class EC2Driver(driver.ComputeDriver):
           }
         self._mounts = {}
         self._interfaces = {}
-        
+
     #To connect to EC2
         self.ec2_conn = ec2.connect_to_region(aws_region, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
 
@@ -154,10 +154,26 @@ class EC2Driver(driver.ComputeDriver):
                 LOG.info("Instance has changed state to %s." % desired_state)
                 name = instance['name']
                 ec2_instance = EC2Instance(name, desired_power_state)
+                #TODO understand the need for the below line
                 self.instances[name] = ec2_instance
                 raise loopingcall.LoopingCallDone()
 
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_power_state)
+        timer.start(interval=0.5).wait()
+
+    def _wait_for_image_state(self, ami_id, desired_state):
+        #Timer to wait for the iamge to reach a state
+        def _wait_for_state():
+            """Called at an interval until the AMI image is available."""
+            images = self.ec2_conn.get_all_images(image_ids=[ami_id], owners=None,
+                                                  executable_by=None, filters=None, dry_run=None)
+            state = images[0].state
+
+            if state == desired_state:
+                LOG.info("Image has changed state to %s." % desired_state)
+                raise loopingcall.LoopingCallDone()
+
+        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_state)
         timer.start(interval=0.5).wait()
 
     def spawn(self, context, instance, image_meta, injected_files,
@@ -171,15 +187,24 @@ class EC2Driver(driver.ComputeDriver):
         ec2_id = ec2_instance[0].id
         self._wait_for_state(instance, ec2_id, "running", power_state.RUNNING)
 
-    def live_snapshot(self, context, instance, name, update_task_state):
-        if instance['name'] not in self.instances:
-            raise exception.InstanceNotRunning(instance_id=instance['uuid'])
-        update_task_state(task_state=task_states.IMAGE_UPLOADING)
-
     def snapshot(self, context, instance, name, update_task_state):
         if instance['name'] not in self.instances:
             raise exception.InstanceNotRunning(instance_id=instance['uuid'])
         update_task_state(task_state=task_states.IMAGE_UPLOADING)
+
+        ec2_id = instance['metadata']['ec2_id']
+        ec_instance_info = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False, max_results=None)
+        ec2_instance = ec_instance_info[0]
+        if ec2_instance.state == 'running':
+            image = ec2_instance.create_image(name=str(ec2_instance.id), description="Image from OpenStack", no_reboot=False, dry_run=False)
+        LOG.info("Image has been created state to %s." % image)
+        #The instance will be in pending state when it comes up, waiting for it to be in available
+        self._wait_for_image_state(image, "available")
+        #TODO we need to fix the queing issue in the images
+
+    def live_snapshot(self, context, instance, name, update_task_state):
+        #We assume that live_snapshot and snapshot does the same thing.
+        self.snapshot(context, instance, name, update_task_state)
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
@@ -270,7 +295,6 @@ class EC2Driver(driver.ComputeDriver):
                 destroy_disks=True, migrate_data=None):
         name = instance['name']
         if name in self.instances:
-
 
             #Deleting the instance from EC2
             ec2_id = instance['metadata']['ec2_id']
@@ -409,8 +433,8 @@ class EC2Driver(driver.ComputeDriver):
         if nodename not in _EC2_NODES:
             return {}
 
-        dic = {'vcpus': 1,
-               'memory_mb': 8192,
+        dic = {'vcpus': cpu_units,
+               'memory_mb': memory_in_mbs,
                'local_gb': 1028,
                'vcpus_used': 0,
                'memory_mb_used': 0,
