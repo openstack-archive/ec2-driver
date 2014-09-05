@@ -35,7 +35,7 @@ class EC2DriverTest(unittest.TestCase):
         ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[self.server.metadata['ec2_id']], filters=None,
                                                     dry_run=False, max_results=None)
 
-        self.assertEqual(len(ec2_instance), 1)
+        self.assertEqual(ec2_instance[0].id, self.server.metadata['ec2_id'])
 
     def test_destroy(self):
         instance = self.spawn_ec2_instance()
@@ -118,7 +118,7 @@ class EC2DriverTest(unittest.TestCase):
         ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[self.server.metadata['ec2_id']], filters=None,
                                                         dry_run=False, max_results=None)[0]
         self.assertEqual(ec2_instance.state, "running")
-
+    
     def tearDown(self):
         if self.server is not None:
             print "Cleanup: Destroying the instance used for testing"

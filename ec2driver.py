@@ -202,10 +202,6 @@ class EC2Driver(driver.ComputeDriver):
         self._wait_for_image_state(image, "available")
         #TODO we need to fix the queing issue in the images
 
-    def live_snapshot(self, context, instance, name, update_task_state):
-        #We assume that live_snapshot and snapshot does the same thing.
-        self.snapshot(context, instance, name, update_task_state)
-
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
 
