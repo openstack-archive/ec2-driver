@@ -32,6 +32,7 @@ from nova.openstack.common import log as logging
 from nova.openstack.common import loopingcall
 from nova.virt import driver
 from nova.virt import virtapi
+from nova.compute import flavors
 
 LOG = logging.getLogger(__name__)
 
@@ -178,6 +179,7 @@ class EC2Driver(driver.ComputeDriver):
 
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None):
+        LOG.info("***** Calling SPAWN *******************")
         #Creating the EC2 instance
         instance_type = flavor_map[instance.get_flavor().name]
         reservation = self.ec2_conn.run_instances(aws_ami, instance_type=instance_type)
@@ -188,6 +190,7 @@ class EC2Driver(driver.ComputeDriver):
         self._wait_for_state(instance, ec2_id, "running", power_state.RUNNING)
 
     def snapshot(self, context, instance, name, update_task_state):
+        LOG.info("***** Calling SNAPSHOT *******************")
         if instance['name'] not in self.instances:
             raise exception.InstanceNotRunning(instance_id=instance['uuid'])
         update_task_state(task_state=task_states.IMAGE_UPLOADING)
@@ -206,13 +209,18 @@ class EC2Driver(driver.ComputeDriver):
                block_device_info=None, bad_volumes_callback=None):
 
         if reboot_type == 'SOFT':
-            ec2_id = instance['metadata']['ec2_id']
-            self.ec2_conn.reboot_instances(instance_ids=[ec2_id], dry_run=False)
+            self._soft_reboot(context, instance, network_info, block_device_info)
         elif reboot_type == 'HARD':
             self._hard_reboot(context, instance, network_info, block_device_info)
 
+    def _soft_reboot(self, context, instance, network_info, block_device_info=None):
+        LOG.info("***** Calling SOFT REBOOT *******************")
+        ec2_id = instance['metadata']['ec2_id']
+        self.ec2_conn.reboot_instances(instance_ids=[ec2_id], dry_run=False)
+        LOG.info("Soft Reboot Complete.")
+
     def _hard_reboot(self, context, instance, network_info, block_device_info=None):
-        LOG.info("Starting Reboot.")
+        LOG.info("***** Calling HARD REBOOT *******************")
         self.power_off(instance)
         self.power_on(context, instance, network_info, block_device)
         LOG.info("Hard Reboot Complete.")
@@ -257,12 +265,14 @@ class EC2Driver(driver.ComputeDriver):
         pass
 
     def power_off(self, instance):
+        LOG.info("***** Calling POWER OFF *******************")
         # Powering off the EC2 instance
         ec2_id = instance['metadata']['ec2_id']
         self.ec2_conn.stop_instances(instance_ids=[ec2_id], force=False, dry_run=False)
         self._wait_for_state(instance, ec2_id, "stopped", power_state.SHUTDOWN)
 
     def power_on(self, context, instance, network_info, block_device_info):
+        LOG.info("***** Calling POWER ON *******************")
         # Powering on the EC2 instance
         ec2_id = instance['metadata']['ec2_id']
         self.ec2_conn.start_instances(instance_ids=[ec2_id], dry_run=False)
@@ -472,10 +482,23 @@ class EC2Driver(driver.ComputeDriver):
     def finish_migration(self, context, migration, instance, disk_info,
                          network_info, image_meta, resize_instance,
                          block_device_info=None, power_on=True):
-        return
+        LOG.info("***** Calling FINISH MIGRATION *******************")
 
     def confirm_migration(self, migration, instance, network_info):
-        return
+        LOG.info("***** Calling CONFIRM MIGRATION *******************")
+        ec2_id = instance['metadata']['ec2_id']
+        ec_instance_info = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False, max_results=None)
+        ec2_instance = ec_instance_info[0]
+        new_instance_type_name = flavors.get_flavor(migration['new_instance_type_id'])['name']
+
+        # EC2 instance needs to be stopped to modify it's attribute. So we stop the instance,
+        # modify the instance type in this case, and then restart the instance.
+        ec2_instance.stop()
+        self._wait_for_state(instance, ec2_id, "stopped", power_state.SHUTDOWN)
+        new_instance_type = flavor_map[new_instance_type_name]
+        ec2_instance.modify_attribute('instanceType', new_instance_type)
+        ec2_instance.start()
+        self._wait_for_state(instance, ec2_id, "running", power_state.RUNNING)
 
     def pre_live_migration(self, context, instance_ref, block_device_info,
                            network_info, disk, migrate_data=None):
