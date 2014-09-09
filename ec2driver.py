@@ -483,9 +483,6 @@ class EC2Driver(driver.ComputeDriver):
                          network_info, image_meta, resize_instance,
                          block_device_info=None, power_on=True):
         LOG.info("***** Calling FINISH MIGRATION *******************")
-
-    def confirm_migration(self, migration, instance, network_info):
-        LOG.info("***** Calling CONFIRM MIGRATION *******************")
         ec2_id = instance['metadata']['ec2_id']
         ec_instance_info = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False, max_results=None)
         ec2_instance = ec_instance_info[0]
@@ -497,6 +494,12 @@ class EC2Driver(driver.ComputeDriver):
         self._wait_for_state(instance, ec2_id, "stopped", power_state.SHUTDOWN)
         new_instance_type = flavor_map[new_instance_type_name]
         ec2_instance.modify_attribute('instanceType', new_instance_type)
+
+    def confirm_migration(self, migration, instance, network_info):
+        LOG.info("***** Calling CONFIRM MIGRATION *******************")
+        ec2_id = instance['metadata']['ec2_id']
+        ec_instance_info = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False, max_results=None)
+        ec2_instance = ec_instance_info[0]
         ec2_instance.start()
         self._wait_for_state(instance, ec2_id, "running", power_state.RUNNING)
 

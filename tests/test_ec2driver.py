@@ -118,7 +118,31 @@ class EC2DriverTest(unittest.TestCase):
         ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[self.server.metadata['ec2_id']], filters=None,
                                                         dry_run=False, max_results=None)[0]
         self.assertEqual(ec2_instance.state, "running")
-    
+
+    def test_resize(self):
+        instance = self.spawn_ec2_instance()
+
+        new_flavor = self.nova.flavors.find(name="m1.small")
+
+        # Resize instance with flavor = m1.small
+        self.nova.servers.resize(instance, new_flavor)
+
+        # wait for the status to actually go to Verify_Resize, before confirming the resize.
+        while instance.status != 'VERIFY_RESIZE':
+            time.sleep(5)
+            instance = self.nova.servers.get(self.server.id)
+
+        # Confirm the resize
+        self.nova.servers.confirm_resize(instance)
+
+        while instance.status != 'ACTIVE':
+            time.sleep(5)
+            instance = self.nova.servers.get(self.server.id)
+
+        ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[self.server.metadata['ec2_id']], filters=None,
+                                                        dry_run=False, max_results=None)[0]
+        self.assertEqual(ec2_instance.instance_type, "t2.small")
+
     def tearDown(self):
         if self.server is not None:
             print "Cleanup: Destroying the instance used for testing"
