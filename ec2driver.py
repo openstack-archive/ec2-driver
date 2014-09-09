@@ -276,7 +276,6 @@ class EC2Driver(driver.ComputeDriver):
         # Powering on the EC2 instance
         ec2_id = instance['metadata']['ec2_id']
         self.ec2_conn.start_instances(instance_ids=[ec2_id], dry_run=False)
-
         self._wait_for_state(instance, ec2_id, "running", power_state.RUNNING)
 
     def soft_delete(self, instance):
@@ -292,10 +291,10 @@ class EC2Driver(driver.ComputeDriver):
         pass
 
     def suspend(self, instance):
-        pass
+        self.power_off(instance)
 
     def resume(self, context, instance, network_info, block_device_info=None):
-        pass
+        self.power_on(context, instance, network_info, block_device_info)
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
