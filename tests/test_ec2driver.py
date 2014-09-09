@@ -40,7 +40,6 @@ class EC2DriverTest(unittest.TestCase):
     def test_destroy(self):
         instance = self.spawn_ec2_instance()
 
-        print instance.status
         ec2_id = instance.metadata['ec2_id']
 
         ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False,
@@ -50,8 +49,6 @@ class EC2DriverTest(unittest.TestCase):
             time.sleep(10)
             ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False,
                                                             max_results=None)
-            print ec2_instance[0].state, ec2_instance[0].state_code
-
         instance.delete()
 
         ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False,
@@ -121,6 +118,11 @@ class EC2DriverTest(unittest.TestCase):
 
     def test_resize(self):
         instance = self.spawn_ec2_instance()
+
+        ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[self.server.metadata['ec2_id']], filters=None,
+                                                        dry_run=False, max_results=None)[0]
+
+        self.assertEqual(ec2_instance.instance_type, "t2.micro")
 
         new_flavor = self.nova.flavors.find(name="m1.small")
 
