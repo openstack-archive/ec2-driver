@@ -145,7 +145,38 @@ class EC2DriverTest(unittest.TestCase):
                                                         dry_run=False, max_results=None)[0]
         self.assertEqual(ec2_instance.instance_type, "t2.small")
 
+    # def test_snapshot(self):
+    #
+    #     #Create an instance, which returns the instance
+    #     instance = self.spawn_ec2_instance()
+    #
+    #     #The AMI_Name of the instance is set to the instance id
+    #     ami_image_name = instance.metadata['ec2_id']
+    #
+    #     #Take a snapshot of the instance using Nova client  on Openstack.
+    #     openstack_image = self.nova.servers.create_image(instance, ami_image_name, metadata=None)
+    #
+    #     #Check on EC2 if the instance has been snapshot
+    #
+    #         # Get all images
+    #     ami_images = self.ec2_conn.get_all_images()
+    #
+    #     for image in ami_images:
+    #
+    #         #Check the name of the image with the AMI_Name we set.
+    #         if image.name == ami_image_name:
+    #             self.assertEqual(image.name, ami_image_name)
+    #
+    #             #Now tearing it down, deleting it from openStack and then in EC2
+    #             image.deregister(delete_snapshot=True, dry_run=False)
+    #             return
+    #
+    #     #self.assertFalse(True)
+    #
+
     def tearDown(self):
+        #TODo this doesn't seem to be tearing down all the instances we have created in parallel.
+        #Will need to destroy all the instances on OpenStack and EC2 created for testing
         if self.server is not None:
             print "Cleanup: Destroying the instance used for testing"
             self.server.delete()
