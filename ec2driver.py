@@ -189,6 +189,11 @@ class EC2Driver(driver.ComputeDriver):
         ec2_id = ec2_instance[0].id
         self._wait_for_state(instance, ec2_id, "running", power_state.RUNNING)
 
+        LOG.info("****** Allocating an elastic IP *********")
+        elastic_ip_address = self.ec2_conn.allocate_address(domain='vpc')
+        LOG.info("****** Associating the elastic IP to the instance *********")
+        self.ec2_conn.associate_address(instance_id=ec2_id, allocation_id=elastic_ip_address.allocation_id)
+
     def snapshot(self, context, instance, name, update_task_state):
         LOG.info("***** Calling SNAPSHOT *******************")
         if instance['name'] not in self.instances:
@@ -303,6 +308,15 @@ class EC2Driver(driver.ComputeDriver):
 
             #Deleting the instance from EC2
             ec2_id = instance['metadata']['ec2_id']
+
+            # get the elastic ip associated with the instance & disassociate it, and release it
+            ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])[0]
+            elastic_ip_address = self.ec2_conn.get_all_addresses(addresses=[ec2_instance.ip_address])[0]
+            LOG.info("****** Disassociating the elastic IP *********")
+            self.ec2_conn.disassociate_address(elastic_ip_address.public_ip)
+            LOG.info("****** Releasing the elastic IP ************")
+            self.ec2_conn.release_address(allocation_id=elastic_ip_address.allocation_id)
+
             self.ec2_conn.stop_instances(instance_ids=[ec2_id], force=True)
             self.ec2_conn.terminate_instances(instance_ids=[ec2_id])
             self._wait_for_state(instance, ec2_id, "terminated", power_state.SHUTDOWN)
