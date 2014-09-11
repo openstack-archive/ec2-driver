@@ -285,10 +285,10 @@ class EC2Driver(driver.ComputeDriver):
         pass
 
     def pause(self, instance):
-        pass
+        self.power_off(instance)
 
     def unpause(self, instance):
-        pass
+        self.power_on(context=None, instance=instance, network_info=None, block_device_info=None)
 
     def suspend(self, instance):
         self.power_off(instance)
