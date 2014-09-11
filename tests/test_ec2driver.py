@@ -125,6 +125,7 @@ class EC2DriverTest(unittest.TestCase):
         ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[instance.metadata['ec2_id']], filters=None,
                                                         dry_run=False, max_results=None)[0]
 
+        ip_before_resize = ec2_instance.ip_address
         self.assertEqual(ec2_instance.instance_type, "t2.micro")
 
         new_flavor = self.nova.flavors.find(name="m1.small")
@@ -146,7 +147,9 @@ class EC2DriverTest(unittest.TestCase):
 
         ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[instance.metadata['ec2_id']], filters=None,
                                                         dry_run=False, max_results=None)[0]
+        ip_after_resize = ec2_instance.ip_address
         self.assertEqual(ec2_instance.instance_type, "t2.small")
+        self.assertEqual(ip_before_resize, ip_after_resize, "Public IP Address should be same before and after the resize")
 
     @classmethod
     def tearDown(self):
