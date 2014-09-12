@@ -36,7 +36,7 @@ from nova.compute import flavors
 
 LOG = logging.getLogger(__name__)
 
-ec2api_opts = [
+ec2driver_opts = [
     cfg.StrOpt('datastore_regex',
                help='Regex to match the name of a datastore.'),
     cfg.FloatOpt('task_poll_interval',
@@ -58,7 +58,7 @@ ec2api_opts = [
     ]
 
 CONF = cfg.CONF
-CONF.register_opts(ec2api_opts, 'ec2driver')
+CONF.register_opts(ec2driver_opts, 'ec2driver')
 
 TIME_BETWEEN_API_CALL_RETRIES = 1.0
 
@@ -155,7 +155,6 @@ class EC2Driver(driver.ComputeDriver):
                 LOG.info("Instance has changed state to %s." % desired_state)
                 name = instance['name']
                 ec2_instance = EC2Instance(name, desired_power_state)
-                #TODO understand the need for the below line
                 self.instances[name] = ec2_instance
                 raise loopingcall.LoopingCallDone()
                 
@@ -163,7 +162,7 @@ class EC2Driver(driver.ComputeDriver):
             existing_instances = self.ec2_conn.get_all_instance_status()
             for ec2_instance in existing_instances:
                 if ec2_instance.id == ec2_id and ec2_instance.system_status.status == 'ok':
-                    LOG.info("Instance status check is %s / %s" % (ec2_instance.system_status.status,ec2_instance.instance_status.status))
+                    LOG.info("Instance status check is %s / %s" % (ec2_instance.system_status.status, ec2_instance.instance_status.status))
                     raise loopingcall.LoopingCallDone()
 
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_power_state)
@@ -206,10 +205,19 @@ class EC2Driver(driver.ComputeDriver):
         self.ec2_conn.associate_address(instance_id=ec2_id, allocation_id=elastic_ip_address.allocation_id)
 
     def snapshot(self, context, instance, name, update_task_state):
+        """
+        Snapshot an image on EC2 and create an Image which gets stored in AMI (internally in EBS Snapshot)
+
+        """
+
         LOG.info("***** Calling SNAPSHOT *******************")
         if instance['name'] not in self.instances:
             raise exception.InstanceNotRunning(instance_id=instance['uuid'])
-        update_task_state(task_state=task_states.IMAGE_UPLOADING)
+
+        #Adding the below line only alters the state of the instance and not its image in OpenStack.
+        update_task_state(task_state=task_states.IMAGE_UPLOADING, expected_state=task_states.IMAGE_SNAPSHOT)
+
+        #ToDo- change the image status to Active instead of in saving or queuing
 
         ec2_id = instance['metadata']['ec2_id']
         ec_instance_info = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False, max_results=None)
