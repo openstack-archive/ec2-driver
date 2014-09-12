@@ -149,8 +149,8 @@ class EC2Driver(driver.ComputeDriver):
         def _wait_for_power_state():
             """Called at an interval until the VM is running again."""
             ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])
+            
             state = ec2_instance[0].state
-
             if state == desired_state:
                 LOG.info("Instance has changed state to %s." % desired_state)
                 name = instance['name']
@@ -158,9 +158,20 @@ class EC2Driver(driver.ComputeDriver):
                 #TODO understand the need for the below line
                 self.instances[name] = ec2_instance
                 raise loopingcall.LoopingCallDone()
+                
+        def _wait_for_status_check():
+            existing_instances = self.ec2_conn.get_all_instance_status()
+            for ec2_instance in existing_instances:
+                if ec2_instance.id == ec2_id and ec2_instance.system_status.status == 'ok':
+                    LOG.info("Instance status check is %s / %s" % (ec2_instance.system_status.status,ec2_instance.instance_status.status))
+                    raise loopingcall.LoopingCallDone()
 
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_power_state)
-        timer.start(interval=0.5).wait()
+        timer.start(interval=1).wait()
+
+        if desired_state == 'running':
+            timer = loopingcall.FixedIntervalLoopingCall(_wait_for_status_check)
+            timer.start(interval=0.5).wait()
 
     def _wait_for_image_state(self, ami_id, desired_state):
         #Timer to wait for the iamge to reach a state
