@@ -40,6 +40,7 @@ class EC2DriverTest(unittest.TestCase):
                                                         dry_run=False, max_results=None)
 
         self.assertEqual(ec2_instance[0].id, instance.metadata['ec2_id'])
+        self.assertEqual(ec2_instance[0].ip_address, instance.metadata['public_ip_address'])
 
     def test_destroy(self):
         instance = self.spawn_ec2_instance()

@@ -194,21 +194,21 @@ class EC2Driver(driver.ComputeDriver):
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None):
         LOG.info("***** Calling SPAWN *******************")
-        # Creating the EC2 instance
+
+        LOG.info("****** Allocating an elastic IP *********")
+        elastic_ip_address = self.ec2_conn.allocate_address(domain='vpc')
+
+        #Creating the EC2 instance
         instance_type = flavor_map[instance.get_flavor().name]
-        reservation = self.ec2_conn.run_instances(
-            aws_ami, instance_type=instance_type)
+        reservation = self.ec2_conn.run_instances(aws_ami, instance_type=instance_type)
         ec2_instance = reservation.instances
-        instance['metadata'].update({'ec2_id': ec2_instance[0].id})
+        instance['metadata'].update({'ec2_id':ec2_instance[0].id, 'public_ip_address':elastic_ip_address.public_ip})
 
         ec2_id = ec2_instance[0].id
         self._wait_for_state(instance, ec2_id, "running", power_state.RUNNING)
 
-        LOG.info("****** Allocating an elastic IP *********")
-        elastic_ip_address = self.ec2_conn.allocate_address(domain='vpc')
         LOG.info("****** Associating the elastic IP to the instance *********")
-        self.ec2_conn.associate_address(
-            instance_id=ec2_id, allocation_id=elastic_ip_address.allocation_id)
+        self.ec2_conn.associate_address(instance_id=ec2_id, allocation_id=elastic_ip_address.allocation_id)
 
     def snapshot(self, context, instance, name, update_task_state):
         """
