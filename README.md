@@ -32,6 +32,6 @@ Using the native OpenStack Dashboard or APIs you would be able to manage the EC2
 The driver should now be loaded. The contents of the repository is mapped to `/opt/stack/nova/nova/virt/ec2/`, and you can edit it directly from your host computer with an IDE of your choice.
 
 ###Important notes
-Suspend and resume In Amazon’s EC2 there is no concept of suspend and resume on instances. Therefore, we simply stop EC2 instances when suspended and start the instances when resumed and reusing the existing methods with tests.
+In Amazon’s EC2 there is no concept of suspend and resume on instances. Therefore, we simply stop EC2 instances when suspended and start the instances when resumed, we do the same on pause and un-pause.
 
 ##To Be Continued
