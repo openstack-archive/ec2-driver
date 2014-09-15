@@ -12,7 +12,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-#This is the config file which is going to hold the values for being able to connect to the AWS Public cloud.
+# This is the config file which is going to hold the values for being able
+# to connect to the AWS Public cloud.
 
 
 aws_region = "us-east-1"
@@ -26,7 +27,7 @@ flavor_map = {'m1.tiny': 't2.micro', 'm1.small': 't2.small', 'm1.medium': 't2.me
               'm1.xlarge': 'c3.2xlarge'}
 image_map = {}
 
-#The limit on maximum resources you could have in the AWS EC2.
+# The limit on maximum resources you could have in the AWS EC2.
 
 cpu_units = 100
 memory_in_mbs = 88192

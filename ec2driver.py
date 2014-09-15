@@ -55,7 +55,7 @@ ec2driver_opts = [
     cfg.BoolOpt('use_linked_clone',
                 default=True,
                 help='Whether to use linked clone'),
-    ]
+]
 
 CONF = cfg.CONF
 CONF.register_opts(ec2driver_opts, 'ec2driver')
@@ -100,7 +100,7 @@ class EC2Driver(driver.ComputeDriver):
     capabilities = {
         "has_imagecache": True,
         "supports_recreate": True,
-        }
+    }
 
     """EC2 hypervisor driver. Respurposing for EC2"""
 
@@ -108,23 +108,24 @@ class EC2Driver(driver.ComputeDriver):
         super(EC2Driver, self).__init__(virtapi)
         self.instances = {}
         self.host_status_base = {
-          'vcpus': 100000,
-          'memory_mb': 8000000000,
-          'local_gb': 600000000000,
-          'vcpus_used': 0,
-          'memory_mb_used': 0,
-          'local_gb_used': 100000000000,
-          'hypervisor_type': 'EC2',
-          'hypervisor_version': '1.0',
-          'hypervisor_hostname': CONF.host,
-          'cpu_info': {},
-          'disk_available_least': 500000000000,
-          }
+            'vcpus': 100000,
+            'memory_mb': 8000000000,
+            'local_gb': 600000000000,
+            'vcpus_used': 0,
+            'memory_mb_used': 0,
+            'local_gb_used': 100000000000,
+            'hypervisor_type': 'EC2',
+            'hypervisor_version': '1.0',
+            'hypervisor_hostname': CONF.host,
+            'cpu_info': {},
+            'disk_available_least': 500000000000,
+        }
         self._mounts = {}
         self._interfaces = {}
 
-    #To connect to EC2
-        self.ec2_conn = ec2.connect_to_region(aws_region, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+    # To connect to EC2
+        self.ec2_conn = ec2.connect_to_region(
+            aws_region, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
 
         self.reservation = self.ec2_conn.get_all_reservations()
 
@@ -148,8 +149,9 @@ class EC2Driver(driver.ComputeDriver):
     def _wait_for_state(self, instance, ec2_id, desired_state, desired_power_state):
         def _wait_for_power_state():
             """Called at an interval until the VM is running again."""
-            ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])
-            
+            ec2_instance = self.ec2_conn.get_only_instances(
+                instance_ids=[ec2_id])
+
             state = ec2_instance[0].state
             if state == desired_state:
                 LOG.info("Instance has changed state to %s." % desired_state)
@@ -157,23 +159,25 @@ class EC2Driver(driver.ComputeDriver):
                 ec2_instance = EC2Instance(name, desired_power_state)
                 self.instances[name] = ec2_instance
                 raise loopingcall.LoopingCallDone()
-                
+
         def _wait_for_status_check():
             existing_instances = self.ec2_conn.get_all_instance_status()
             for ec2_instance in existing_instances:
                 if ec2_instance.id == ec2_id and ec2_instance.system_status.status == 'ok':
-                    LOG.info("Instance status check is %s / %s" % (ec2_instance.system_status.status, ec2_instance.instance_status.status))
+                    LOG.info("Instance status check is %s / %s" %
+                             (ec2_instance.system_status.status, ec2_instance.instance_status.status))
                     raise loopingcall.LoopingCallDone()
 
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_power_state)
         timer.start(interval=1).wait()
 
         if desired_state == 'running':
-            timer = loopingcall.FixedIntervalLoopingCall(_wait_for_status_check)
+            timer = loopingcall.FixedIntervalLoopingCall(
+                _wait_for_status_check)
             timer.start(interval=0.5).wait()
 
     def _wait_for_image_state(self, ami_id, desired_state):
-        #Timer to wait for the iamge to reach a state
+        # Timer to wait for the iamge to reach a state
         def _wait_for_state():
             """Called at an interval until the AMI image is available."""
             images = self.ec2_conn.get_all_images(image_ids=[ami_id], owners=None,
@@ -190,11 +194,12 @@ class EC2Driver(driver.ComputeDriver):
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None):
         LOG.info("***** Calling SPAWN *******************")
-        #Creating the EC2 instance
+        # Creating the EC2 instance
         instance_type = flavor_map[instance.get_flavor().name]
-        reservation = self.ec2_conn.run_instances(aws_ami, instance_type=instance_type)
+        reservation = self.ec2_conn.run_instances(
+            aws_ami, instance_type=instance_type)
         ec2_instance = reservation.instances
-        instance['metadata'].update({'ec2_id':ec2_instance[0].id})
+        instance['metadata'].update({'ec2_id': ec2_instance[0].id})
 
         ec2_id = ec2_instance[0].id
         self._wait_for_state(instance, ec2_id, "running", power_state.RUNNING)
@@ -202,7 +207,8 @@ class EC2Driver(driver.ComputeDriver):
         LOG.info("****** Allocating an elastic IP *********")
         elastic_ip_address = self.ec2_conn.allocate_address(domain='vpc')
         LOG.info("****** Associating the elastic IP to the instance *********")
-        self.ec2_conn.associate_address(instance_id=ec2_id, allocation_id=elastic_ip_address.allocation_id)
+        self.ec2_conn.associate_address(
+            instance_id=ec2_id, allocation_id=elastic_ip_address.allocation_id)
 
     def snapshot(self, context, instance, name, update_task_state):
         """
@@ -214,28 +220,36 @@ class EC2Driver(driver.ComputeDriver):
         if instance['name'] not in self.instances:
             raise exception.InstanceNotRunning(instance_id=instance['uuid'])
 
-        #Adding the below line only alters the state of the instance and not its image in OpenStack.
-        update_task_state(task_state=task_states.IMAGE_UPLOADING, expected_state=task_states.IMAGE_SNAPSHOT)
+        # Adding the below line only alters the state of the instance and not
+        # its image in OpenStack.
+        update_task_state(
+            task_state=task_states.IMAGE_UPLOADING, expected_state=task_states.IMAGE_SNAPSHOT)
 
-        #ToDo- change the image status to Active instead of in saving or queuing
+        # ToDo- change the image status to Active instead of in saving or
+        # queuing
 
         ec2_id = instance['metadata']['ec2_id']
-        ec_instance_info = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False, max_results=None)
+        ec_instance_info = self.ec2_conn.get_only_instances(
+            instance_ids=[ec2_id], filters=None, dry_run=False, max_results=None)
         ec2_instance = ec_instance_info[0]
         if ec2_instance.state == 'running':
-            image = ec2_instance.create_image(name=str(ec2_instance.id), description="Image from OpenStack", no_reboot=False, dry_run=False)
+            image = ec2_instance.create_image(name=str(
+                ec2_instance.id), description="Image from OpenStack", no_reboot=False, dry_run=False)
         LOG.info("Image has been created state to %s." % image)
-        #The instance will be in pending state when it comes up, waiting for it to be in available
+        # The instance will be in pending state when it comes up, waiting for
+        # it to be in available
         self._wait_for_image_state(image, "available")
-        #TODO we need to fix the queing issue in the images
+        # TODO we need to fix the queing issue in the images
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
 
         if reboot_type == 'SOFT':
-            self._soft_reboot(context, instance, network_info, block_device_info)
+            self._soft_reboot(
+                context, instance, network_info, block_device_info)
         elif reboot_type == 'HARD':
-            self._hard_reboot(context, instance, network_info, block_device_info)
+            self._hard_reboot(
+                context, instance, network_info, block_device_info)
 
     def _soft_reboot(self, context, instance, network_info, block_device_info=None):
         LOG.info("***** Calling SOFT REBOOT *******************")
@@ -292,7 +306,8 @@ class EC2Driver(driver.ComputeDriver):
         LOG.info("***** Calling POWER OFF *******************")
         # Powering off the EC2 instance
         ec2_id = instance['metadata']['ec2_id']
-        self.ec2_conn.stop_instances(instance_ids=[ec2_id], force=False, dry_run=False)
+        self.ec2_conn.stop_instances(
+            instance_ids=[ec2_id], force=False, dry_run=False)
         self._wait_for_state(instance, ec2_id, "stopped", power_state.SHUTDOWN)
 
     def power_on(self, context, instance, network_info, block_device_info):
@@ -312,7 +327,8 @@ class EC2Driver(driver.ComputeDriver):
         self.power_off(instance)
 
     def unpause(self, instance):
-        self.power_on(context=None, instance=instance, network_info=None, block_device_info=None)
+        self.power_on(
+            context=None, instance=instance, network_info=None, block_device_info=None)
 
     def suspend(self, instance):
         self.power_off(instance)
@@ -325,20 +341,25 @@ class EC2Driver(driver.ComputeDriver):
         name = instance['name']
         if name in self.instances:
 
-            #Deleting the instance from EC2
+            # Deleting the instance from EC2
             ec2_id = instance['metadata']['ec2_id']
 
-            # get the elastic ip associated with the instance & disassociate it, and release it
-            ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])[0]
-            elastic_ip_address = self.ec2_conn.get_all_addresses(addresses=[ec2_instance.ip_address])[0]
+            # get the elastic ip associated with the instance & disassociate
+            # it, and release it
+            ec2_instance = self.ec2_conn.get_only_instances(
+                instance_ids=[ec2_id])[0]
+            elastic_ip_address = self.ec2_conn.get_all_addresses(
+                addresses=[ec2_instance.ip_address])[0]
             LOG.info("****** Disassociating the elastic IP *********")
             self.ec2_conn.disassociate_address(elastic_ip_address.public_ip)
             LOG.info("****** Releasing the elastic IP ************")
-            self.ec2_conn.release_address(allocation_id=elastic_ip_address.allocation_id)
+            self.ec2_conn.release_address(
+                allocation_id=elastic_ip_address.allocation_id)
 
             self.ec2_conn.stop_instances(instance_ids=[ec2_id], force=True)
             self.ec2_conn.terminate_instances(instance_ids=[ec2_id])
-            self._wait_for_state(instance, ec2_id, "terminated", power_state.SHUTDOWN)
+            self._wait_for_state(
+                instance, ec2_id, "terminated", power_state.SHUTDOWN)
 
         else:
             LOG.warning(_("Key '%(key)s' not in instances '%(inst)s'") %
@@ -409,7 +430,7 @@ class EC2Driver(driver.ComputeDriver):
                 'vnet1_tx_drop': 0,
                 'vnet1_tx_errors': 0,
                 'vnet1_tx_packets': 662,
-        }
+                }
 
     def get_all_bw_counters(self, instances):
         """Return bandwidth usage counters for each interface on each
@@ -494,7 +515,7 @@ class EC2Driver(driver.ComputeDriver):
                        post_method, recover_method, block_migration=False,
                        migrate_data=None):
         post_method(context, instance_ref, dest, block_migration,
-                            migrate_data)
+                    migrate_data)
         return
 
     def check_can_live_migrate_destination_cleanup(self, ctxt,
@@ -516,9 +537,11 @@ class EC2Driver(driver.ComputeDriver):
                          block_device_info=None, power_on=True):
         LOG.info("***** Calling FINISH MIGRATION *******************")
         ec2_id = instance['metadata']['ec2_id']
-        ec_instance_info = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False, max_results=None)
+        ec_instance_info = self.ec2_conn.get_only_instances(
+            instance_ids=[ec2_id], filters=None, dry_run=False, max_results=None)
         ec2_instance = ec_instance_info[0]
-        new_instance_type_name = flavors.get_flavor(migration['new_instance_type_id'])['name']
+        new_instance_type_name = flavors.get_flavor(
+            migration['new_instance_type_id'])['name']
 
         # EC2 instance needs to be stopped to modify it's attribute. So we stop the instance,
         # modify the instance type in this case, and then restart the instance.
@@ -530,7 +553,8 @@ class EC2Driver(driver.ComputeDriver):
     def confirm_migration(self, migration, instance, network_info):
         LOG.info("***** Calling CONFIRM MIGRATION *******************")
         ec2_id = instance['metadata']['ec2_id']
-        ec_instance_info = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False, max_results=None)
+        ec_instance_info = self.ec2_conn.get_only_instances(
+            instance_ids=[ec2_id], filters=None, dry_run=False, max_results=None)
         ec2_instance = ec_instance_info[0]
         ec2_instance.start()
         self._wait_for_state(instance, ec2_id, "running", power_state.RUNNING)
@@ -603,6 +627,7 @@ class EC2Driver(driver.ComputeDriver):
 
 
 class EC2VirtAPI(virtapi.VirtAPI):
+
     def instance_update(self, context, instance_uuid, updates):
         return db.instance_update_and_get_original(context,
                                                    instance_uuid,

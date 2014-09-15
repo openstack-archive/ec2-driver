@@ -24,7 +24,8 @@ class EC2DriverTest(unittest.TestCase):
         print "Spawning an instance"
         image = self.nova.images.find(name="cirros-0.3.1-x86_64-uec")
         flavor = self.nova.flavors.find(name="m1.tiny")
-        server = self.nova.servers.create(name="cirros-test", image=image.id, flavor=flavor.id)
+        server = self.nova.servers.create(
+            name="cirros-test", image=image.id, flavor=flavor.id)
         instance = self.nova.servers.get(server.id)
         while instance.status != 'ACTIVE':
             time.sleep(10)
@@ -36,7 +37,7 @@ class EC2DriverTest(unittest.TestCase):
         instance = self.spawn_ec2_instance()
 
         ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[instance.metadata['ec2_id']], filters=None,
-                                                    dry_run=False, max_results=None)
+                                                        dry_run=False, max_results=None)
 
         self.assertEqual(ec2_instance[0].id, instance.metadata['ec2_id'])
 
@@ -69,26 +70,28 @@ class EC2DriverTest(unittest.TestCase):
 
     def test_power_off(self):
         instance = self.spawn_ec2_instance()
-        #Send poweroff to the instance
+        # Send poweroff to the instance
         self.nova.servers.stop(instance)
 
         while instance.status != 'SHUTOFF':
             time.sleep(5)
             instance = self.nova.servers.get(instance.id)
 
-        #assert power off
+        # assert power off
         ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[instance.metadata['ec2_id']], filters=None,
                                                         dry_run=False, max_results=None)[0]
         self.assertEqual(ec2_instance.state, "stopped")
 
     def test_soft_reboot(self):
         instance = self.spawn_ec2_instance()
-        #Send reboot to the instance with reboot_type = 'soft'
+        # Send reboot to the instance with reboot_type = 'soft'
         self.nova.servers.reboot(instance, client.servers.REBOOT_SOFT)
 
-        # we are waiting for the status to actually get to 'Reboot' before beginning to wait for it to go to 'Active' status
+        # we are waiting for the status to actually get to 'Reboot' before
+        # beginning to wait for it to go to 'Active' status
         while instance.status != 'REBOOT':
-            # We don't sleep here because the soft reboot may take less than a second
+            # We don't sleep here because the soft reboot may take less than a
+            # second
             instance = self.nova.servers.get(instance.id)
 
         while instance.status != 'ACTIVE':
@@ -102,10 +105,11 @@ class EC2DriverTest(unittest.TestCase):
 
     def test_hard_reboot(self):
         instance = self.spawn_ec2_instance()
-        #Send reboot to the instance with reboot_type = 'soft'
+        # Send reboot to the instance with reboot_type = 'soft'
         self.nova.servers.reboot(instance, client.servers.REBOOT_HARD)
 
-        # we are waiting for the status to actually get to 'Hard Reboot' before beginning to wait for it to go to 'Active' status
+        # we are waiting for the status to actually get to 'Hard Reboot' before
+        # beginning to wait for it to go to 'Active' status
         while instance.status != 'HARD_REBOOT':
             time.sleep(5)
             instance = self.nova.servers.get(instance.id)
@@ -133,7 +137,8 @@ class EC2DriverTest(unittest.TestCase):
         # Resize instance with flavor = m1.small
         self.nova.servers.resize(instance, new_flavor)
 
-        # wait for the status to actually go to Verify_Resize, before confirming the resize.
+        # wait for the status to actually go to Verify_Resize, before
+        # confirming the resize.
         while instance.status != 'VERIFY_RESIZE':
             time.sleep(5)
             instance = self.nova.servers.get(instance.id)
@@ -149,7 +154,8 @@ class EC2DriverTest(unittest.TestCase):
                                                         dry_run=False, max_results=None)[0]
         ip_after_resize = ec2_instance.ip_address
         self.assertEqual(ec2_instance.instance_type, "t2.small")
-        self.assertEqual(ip_before_resize, ip_after_resize, "Public IP Address should be same before and after the resize")
+        self.assertEqual(ip_before_resize, ip_after_resize,
+                         "Public IP Address should be same before and after the resize")
 
     @classmethod
     def tearDown(self):
