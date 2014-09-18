@@ -137,7 +137,21 @@ class EC2Driver(driver.ComputeDriver):
         return
 
     def list_instances(self):
-        return self.instances.keys()
+        all_instances = self.ec2_conn.get_all_instances()
+        instance_ids = []
+        for instance in all_instances:
+            instance_ids.append(instance.id)
+            LOG.info("Instance Id = %s" % instance.id)
+            LOG.info("Instance Id count = %d" % len(instance_ids))
+        # api_api = api.API()
+        # instances = api_api.get_all(api_api, 'admin')
+        # instance_names = []
+        # for instance in instances:
+        #     instance_names.append(instance['name'])
+        #     LOG.info("Instance Name = %s" % instance['name'])
+        #     LOG.info("Instance Name count = %d" % len(instance_names))
+        # return self.instances.keys()
+        return instance_ids
 
     def plug_vifs(self, instance, network_info):
         """Plug VIFs into networks."""
@@ -192,6 +206,13 @@ class EC2Driver(driver.ComputeDriver):
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_state)
         timer.start(interval=0.5).wait()
 
+    def _is_ec2_instance(self, instance):
+        name = instance['name']
+        if(instance['metadata'].get('ec2_id') is None):
+            LOG.warning(_("Key '%s' not in EC2 instances") % name, instance=instance)
+            return False
+        else:
+            return True
 
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None):
@@ -226,7 +247,7 @@ class EC2Driver(driver.ComputeDriver):
         """
 
         LOG.info("***** Calling SNAPSHOT *******************")
-        if instance['name'] not in self.instances:
+        if(self._is_ec2_instance(instance) is not True):
             raise exception.InstanceNotRunning(instance_id=instance['uuid'])
 
         # Adding the below line only alters the state of the instance and not
@@ -347,9 +368,8 @@ class EC2Driver(driver.ComputeDriver):
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
-        name = instance['name']
-        if name in self.instances:
-
+        LOG.info("***** Calling DESTROY *******************")
+        if(self._is_ec2_instance(instance) is True):
             # Deleting the instance from EC2
             ec2_id = instance['metadata']['ec2_id']
 
@@ -369,11 +389,6 @@ class EC2Driver(driver.ComputeDriver):
             self.ec2_conn.terminate_instances(instance_ids=[ec2_id])
             self._wait_for_state(
                 instance, ec2_id, "terminated", power_state.SHUTDOWN)
-
-        else:
-            LOG.warning(_("Key '%(key)s' not in instances '%(inst)s'") %
-                        {'key': name,
-                         'inst': self.instances}, instance=instance)
 
     def attach_volume(self, context, connection_info, instance, mountpoint,
                       encryption=None):
