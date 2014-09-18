@@ -34,6 +34,7 @@ class EC2DriverTest(unittest.TestCase):
         return instance
 
     def test_spawn(self):
+        print "******* Spawn Test ***********"
         instance = self.spawn_ec2_instance()
 
         ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[instance.metadata['ec2_id']], filters=None,
@@ -43,6 +44,7 @@ class EC2DriverTest(unittest.TestCase):
         self.assertEqual(ec2_instance[0].ip_address, instance.metadata['public_ip_address'])
 
     def test_destroy(self):
+        print "******* Destroy Test ***********"
         instance = self.spawn_ec2_instance()
 
         ec2_id = instance.metadata['ec2_id']
@@ -70,6 +72,7 @@ class EC2DriverTest(unittest.TestCase):
         self.assertEquals(ec2_instance[0].state, "shutting-down")
 
     def test_power_off(self):
+        print "******* Power Off Test ***********"
         instance = self.spawn_ec2_instance()
         # Send poweroff to the instance
         self.nova.servers.stop(instance)
@@ -84,6 +87,7 @@ class EC2DriverTest(unittest.TestCase):
         self.assertEqual(ec2_instance.state, "stopped")
 
     def test_soft_reboot(self):
+        print "******* Soft Reboot Test ***********"
         instance = self.spawn_ec2_instance()
         # Send reboot to the instance with reboot_type = 'soft'
         self.nova.servers.reboot(instance, client.servers.REBOOT_SOFT)
@@ -105,6 +109,7 @@ class EC2DriverTest(unittest.TestCase):
         self.assertEqual(ec2_instance.state, "running")
 
     def test_hard_reboot(self):
+        print "******* Hard Reboot Test ***********"
         instance = self.spawn_ec2_instance()
         # Send reboot to the instance with reboot_type = 'soft'
         self.nova.servers.reboot(instance, client.servers.REBOOT_HARD)
@@ -125,6 +130,7 @@ class EC2DriverTest(unittest.TestCase):
         self.assertEqual(ec2_instance.state, "running")
 
     def test_resize(self):
+        print "******* Resize Test ***********"
         instance = self.spawn_ec2_instance()
 
         ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[instance.metadata['ec2_id']], filters=None,
