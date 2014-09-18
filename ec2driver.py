@@ -33,6 +33,7 @@ from nova.openstack.common import loopingcall
 from nova.virt import driver
 from nova.virt import virtapi
 from nova.compute import flavors
+import base64
 
 LOG = logging.getLogger(__name__)
 
@@ -191,16 +192,24 @@ class EC2Driver(driver.ComputeDriver):
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_state)
         timer.start(interval=0.5).wait()
 
+
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None):
         LOG.info("***** Calling SPAWN *******************")
-
+        LOG.info("****** %s" % instance._user_data)
         LOG.info("****** Allocating an elastic IP *********")
         elastic_ip_address = self.ec2_conn.allocate_address(domain='vpc')
 
         #Creating the EC2 instance
-        instance_type = flavor_map[instance.get_flavor().name]
-        reservation = self.ec2_conn.run_instances(aws_ami, instance_type=instance_type)
+        flavor_type = flavor_map[instance.get_flavor().name]
+
+        #passing user_data from the openstack instance which is Base64 encoded after decoding it.
+        user_data = instance._user_data
+
+        if user_data:
+            user_data = base64.b64decode(user_data)
+
+        reservation = self.ec2_conn.run_instances(aws_ami, instance_type=flavor_type, user_data=user_data)
         ec2_instance = reservation.instances
         instance['metadata'].update({'ec2_id':ec2_instance[0].id, 'public_ip_address':elastic_ip_address.public_ip})
 
