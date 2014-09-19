@@ -15,8 +15,6 @@
 
 """Connection to the Amazon Web Services - EC2 service"""
 
-from nova.virt import driver
-
 from boto import ec2
 from ec2driver_config import *
 
@@ -143,14 +141,6 @@ class EC2Driver(driver.ComputeDriver):
             instance_ids.append(instance.id)
             LOG.info("Instance Id = %s" % instance.id)
             LOG.info("Instance Id count = %d" % len(instance_ids))
-        # api_api = api.API()
-        # instances = api_api.get_all(api_api, 'admin')
-        # instance_names = []
-        # for instance in instances:
-        #     instance_names.append(instance['name'])
-        #     LOG.info("Instance Name = %s" % instance['name'])
-        #     LOG.info("Instance Name count = %d" % len(instance_names))
-        # return self.instances.keys()
         return instance_ids
 
     def plug_vifs(self, instance, network_info):
@@ -206,14 +196,6 @@ class EC2Driver(driver.ComputeDriver):
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_state)
         timer.start(interval=0.5).wait()
 
-    def _is_ec2_instance(self, instance):
-        name = instance['name']
-        if(instance['metadata'].get('ec2_id') is None):
-            LOG.warning(_("Key '%s' not in EC2 instances") % name, instance=instance)
-            return False
-        else:
-            return True
-
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None):
         LOG.info("***** Calling SPAWN *******************")
@@ -247,7 +229,7 @@ class EC2Driver(driver.ComputeDriver):
         """
 
         LOG.info("***** Calling SNAPSHOT *******************")
-        if(self._is_ec2_instance(instance) is not True):
+        if(instance['metadata']['ec2_id'] is None):
             raise exception.InstanceNotRunning(instance_id=instance['uuid'])
 
         # Adding the below line only alters the state of the instance and not
@@ -369,7 +351,10 @@ class EC2Driver(driver.ComputeDriver):
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
         LOG.info("***** Calling DESTROY *******************")
-        if(self._is_ec2_instance(instance) is True):
+        if(instance['metadata']['ec2_id'] is None):
+            LOG.warning(_("Key '%s' not in EC2 instances") % instance['name'], instance=instance)
+            return False
+        else:
             # Deleting the instance from EC2
             ec2_id = instance['metadata']['ec2_id']
 
@@ -589,10 +574,6 @@ class EC2Driver(driver.ComputeDriver):
 
     def unfilter_instance(self, instance_ref, network_info):
         return
-
-    def test_remove_vm(self, instance_name):
-        """Removes the named VM, as if it crashed. For testing."""
-        self.instances.pop(instance_name)
 
     def get_host_stats(self, refresh=False):
         """Return EC2 Host Status of ram, disk, network."""
