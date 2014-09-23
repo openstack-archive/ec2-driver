@@ -171,8 +171,19 @@ class EC2Driver(driver.ComputeDriver):
                 self.instances[name] = ec2_instance
                 raise loopingcall.LoopingCallDone()
 
+        def _wait_for_status_check():
+            ec2_instance = self.ec2_conn.get_all_instance_status(instance_ids=[ec2_id])[0]
+            if ec2_instance.system_status.status == 'ok':
+                LOG.info("Instance status check is %s / %s" %
+                         (ec2_instance.system_status.status, ec2_instance.instance_status.status))
+                raise loopingcall.LoopingCallDone()
+
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_power_state)
         timer.start(interval=1).wait()
+
+        if desired_state == 'running':
+            timer = loopingcall.FixedIntervalLoopingCall(_wait_for_status_check)
+            timer.start(interval=0.5).wait()
 
     def _wait_for_image_state(self, ami_id, desired_state):
         # Timer to wait for the iamge to reach a state
@@ -181,7 +192,7 @@ class EC2Driver(driver.ComputeDriver):
             images = self.ec2_conn.get_all_images(image_ids=[ami_id], owners=None,
                                                   executable_by=None, filters=None, dry_run=None)
             state = images[0].state
-
+            # LOG.info("\n\n\nImage id = %s" % ami_id + ", state = %s\n\n\n" % state)
             if state == desired_state:
                 LOG.info("Image has changed state to %s." % desired_state)
                 raise loopingcall.LoopingCallDone()
@@ -238,12 +249,12 @@ class EC2Driver(driver.ComputeDriver):
             instance_ids=[ec2_id], filters=None, dry_run=False, max_results=None)
         ec2_instance = ec_instance_info[0]
         if ec2_instance.state == 'running':
-            image = ec2_instance.create_image(name=str(
+            image_id = ec2_instance.create_image(name=str(
                 ec2_instance.id), description="Image from OpenStack", no_reboot=False, dry_run=False)
-        LOG.info("Image has been created state to %s." % image)
+        LOG.info("Image has been created state to %s." % image_id)
         # The instance will be in pending state when it comes up, waiting for
         # it to be in available
-        self._wait_for_image_state(image, "available")
+        self._wait_for_image_state(image_id, "available")
         # TODO we need to fix the queing issue in the images
 
     def reboot(self, context, instance, network_info, reboot_type,
