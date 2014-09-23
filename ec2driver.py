@@ -355,25 +355,31 @@ class EC2Driver(driver.ComputeDriver):
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
         LOG.info("***** Calling DESTROY *******************")
-        if(instance['metadata']['ec2_id'] is None):
+        LOG.info(pprint.pprint(instance['metadata']))
+
+        if 'ec2_id' not in instance['metadata']:
             LOG.warning(_("Key '%s' not in EC2 instances") % instance['name'], instance=instance)
             return
         else:
             # Deleting the instance from EC2
             ec2_id = instance['metadata']['ec2_id']
+            ec2_instances = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])
+            if ec2_instances.__len__() == 0:
+                LOG.warning(_("EC2 instance with ID %s not found") % ec2_id, instance=instance)
+                return
+            else:
+                # get the elastic ip associated with the instance & disassociate
+                # it, and release it
+                ec2_instance = ec2_instances[0]
+                elastic_ip_address = self.ec2_conn.get_all_addresses(addresses=[ec2_instance.ip_address])[0]
+                LOG.info("****** Disassociating the elastic IP *********")
+                self.ec2_conn.disassociate_address(elastic_ip_address.public_ip)
 
-            # get the elastic ip associated with the instance & disassociate
-            # it, and release it
-            ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])[0]
-            elastic_ip_address = self.ec2_conn.get_all_addresses(addresses=[ec2_instance.ip_address])[0]
-            LOG.info("****** Disassociating the elastic IP *********")
-            self.ec2_conn.disassociate_address(elastic_ip_address.public_ip)
-
-            self.ec2_conn.stop_instances(instance_ids=[ec2_id], force=True)
-            self.ec2_conn.terminate_instances(instance_ids=[ec2_id])
-            self._wait_for_state(instance, ec2_id, "terminated", power_state.SHUTDOWN)
-            LOG.info("****** Releasing the elastic IP ************")
-            self.ec2_conn.release_address(allocation_id=elastic_ip_address.allocation_id)
+                self.ec2_conn.stop_instances(instance_ids=[ec2_id], force=True)
+                self.ec2_conn.terminate_instances(instance_ids=[ec2_id])
+                self._wait_for_state(instance, ec2_id, "terminated", power_state.SHUTDOWN)
+                LOG.info("****** Releasing the elastic IP ************")
+                self.ec2_conn.release_address(allocation_id=elastic_ip_address.allocation_id)
 
     def attach_volume(self, context, connection_info, instance, mountpoint,
                       encryption=None):
