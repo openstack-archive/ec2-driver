@@ -14,6 +14,7 @@
 #    under the License.
 
 """Connection to the Amazon Web Services - EC2 service"""
+import pprint
 
 from boto import ec2
 from ec2driver_config import *
@@ -61,6 +62,14 @@ CONF.register_opts(ec2driver_opts, 'ec2driver')
 
 TIME_BETWEEN_API_CALL_RETRIES = 1.0
 
+EC2_STATE_MAP = {
+        "pending" : power_state.NOSTATE,
+        "running" : power_state.RUNNING,
+        "shutting-down" : power_state.NOSTATE,
+        "terminated" : power_state.SHUTDOWN,
+        "stopping" :power_state.NOSTATE,
+        "stopped" : power_state.SHUTDOWN
+}
 
 def set_nodes(nodes):
     """Sets EC2Driver's node.list.
@@ -139,8 +148,6 @@ class EC2Driver(driver.ComputeDriver):
         instance_ids = []
         for instance in all_instances:
             instance_ids.append(instance.id)
-            LOG.info("Instance Id = %s" % instance.id)
-            LOG.info("Instance Id count = %d" % len(instance_ids))
         return instance_ids
 
     def plug_vifs(self, instance, network_info):
@@ -154,8 +161,7 @@ class EC2Driver(driver.ComputeDriver):
     def _wait_for_state(self, instance, ec2_id, desired_state, desired_power_state):
         def _wait_for_power_state():
             """Called at an interval until the VM is running again."""
-            ec2_instance = self.ec2_conn.get_only_instances(
-                instance_ids=[ec2_id])
+            ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])
 
             state = ec2_instance[0].state
             if state == desired_state:
@@ -165,21 +171,8 @@ class EC2Driver(driver.ComputeDriver):
                 self.instances[name] = ec2_instance
                 raise loopingcall.LoopingCallDone()
 
-        def _wait_for_status_check():
-            existing_instances = self.ec2_conn.get_all_instance_status()
-            for ec2_instance in existing_instances:
-                if ec2_instance.id == ec2_id and ec2_instance.system_status.status == 'ok':
-                    LOG.info("Instance status check is %s / %s" %
-                             (ec2_instance.system_status.status, ec2_instance.instance_status.status))
-                    raise loopingcall.LoopingCallDone()
-
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_power_state)
         timer.start(interval=1).wait()
-
-        if desired_state == 'running':
-            timer = loopingcall.FixedIntervalLoopingCall(
-                _wait_for_status_check)
-            timer.start(interval=0.5).wait()
 
     def _wait_for_image_state(self, ami_id, desired_state):
         # Timer to wait for the iamge to reach a state
@@ -214,10 +207,10 @@ class EC2Driver(driver.ComputeDriver):
 
         reservation = self.ec2_conn.run_instances(aws_ami, instance_type=flavor_type, user_data=user_data)
         ec2_instance = reservation.instances
-        instance['metadata'].update({'ec2_id':ec2_instance[0].id, 'public_ip_address':elastic_ip_address.public_ip})
 
         ec2_id = ec2_instance[0].id
         self._wait_for_state(instance, ec2_id, "running", power_state.RUNNING)
+        instance['metadata'].update({'ec2_id':ec2_instance[0].id, 'public_ip_address':elastic_ip_address.public_ip})
 
         LOG.info("****** Associating the elastic IP to the instance *********")
         self.ec2_conn.associate_address(instance_id=ec2_id, allocation_id=elastic_ip_address.allocation_id)
@@ -353,27 +346,23 @@ class EC2Driver(driver.ComputeDriver):
         LOG.info("***** Calling DESTROY *******************")
         if(instance['metadata']['ec2_id'] is None):
             LOG.warning(_("Key '%s' not in EC2 instances") % instance['name'], instance=instance)
-            return False
+            return
         else:
             # Deleting the instance from EC2
             ec2_id = instance['metadata']['ec2_id']
 
             # get the elastic ip associated with the instance & disassociate
             # it, and release it
-            ec2_instance = self.ec2_conn.get_only_instances(
-                instance_ids=[ec2_id])[0]
-            elastic_ip_address = self.ec2_conn.get_all_addresses(
-                addresses=[ec2_instance.ip_address])[0]
+            ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])[0]
+            elastic_ip_address = self.ec2_conn.get_all_addresses(addresses=[ec2_instance.ip_address])[0]
             LOG.info("****** Disassociating the elastic IP *********")
             self.ec2_conn.disassociate_address(elastic_ip_address.public_ip)
-            LOG.info("****** Releasing the elastic IP ************")
-            self.ec2_conn.release_address(
-                allocation_id=elastic_ip_address.allocation_id)
 
             self.ec2_conn.stop_instances(instance_ids=[ec2_id], force=True)
             self.ec2_conn.terminate_instances(instance_ids=[ec2_id])
-            self._wait_for_state(
-                instance, ec2_id, "terminated", power_state.SHUTDOWN)
+            self._wait_for_state(instance, ec2_id, "terminated", power_state.SHUTDOWN)
+            LOG.info("****** Releasing the elastic IP ************")
+            self.ec2_conn.release_address(allocation_id=elastic_ip_address.allocation_id)
 
     def attach_volume(self, context, connection_info, instance, mountpoint,
                       encryption=None):
@@ -414,10 +403,12 @@ class EC2Driver(driver.ComputeDriver):
             raise exception.InterfaceDetachFailed('not attached')
 
     def get_info(self, instance):
-        if instance['name'] not in self.instances:
+        if(instance['metadata'] is None or instance['metadata']['ec2_id'] is None):
             raise exception.InstanceNotFound(instance_id=instance['name'])
-        i = self.instances[instance['name']]
-        return {'state': i.state,
+
+        ec2_id = instance['metadata']['ec2_id']
+        ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False, max_results=None)[0]
+        return {'state': EC2_STATE_MAP.get(ec2_instance.state),
                 'max_mem': 0,
                 'mem': 0,
                 'num_cpu': 2,
