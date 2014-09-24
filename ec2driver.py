@@ -14,7 +14,6 @@
 #    under the License.
 
 """Connection to the Amazon Web Services - EC2 service"""
-import pprint
 
 from boto import ec2
 from ec2driver_config import *
@@ -93,17 +92,6 @@ def restore_nodes():
     global _EC2_NODES
     _EC2_NODES = [CONF.host]
 
-
-class EC2Instance(object):
-
-    def __init__(self, name, state):
-        self.name = name
-        self.state = state
-
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-
 class EC2Driver(driver.ComputeDriver):
     capabilities = {
         "has_imagecache": True,
@@ -114,7 +102,6 @@ class EC2Driver(driver.ComputeDriver):
 
     def __init__(self, virtapi, read_only=False):
         super(EC2Driver, self).__init__(virtapi)
-        self.instances = {}
         self.host_status_base = {
             'vcpus': 100000,
             'memory_mb': 8000000000,
@@ -166,9 +153,6 @@ class EC2Driver(driver.ComputeDriver):
             state = ec2_instance[0].state
             if state == desired_state:
                 LOG.info("Instance has changed state to %s." % desired_state)
-                name = instance['name']
-                ec2_instance = EC2Instance(name, desired_power_state)
-                self.instances[name] = ec2_instance
                 raise loopingcall.LoopingCallDone()
 
         def _wait_for_status_check():
@@ -241,7 +225,7 @@ class EC2Driver(driver.ComputeDriver):
         update_task_state(
             task_state=task_states.IMAGE_UPLOADING, expected_state=task_states.IMAGE_SNAPSHOT)
 
-        # ToDo- change the image status to Active instead of in saving or
+        # TODO change the image status to Active instead of in saving or
         # queuing
 
         ec2_id = instance['metadata']['ec2_id']
@@ -250,12 +234,12 @@ class EC2Driver(driver.ComputeDriver):
         ec2_instance = ec_instance_info[0]
         if ec2_instance.state == 'running':
             image_id = ec2_instance.create_image(name=str(
-                ec2_instance.id), description="Image from OpenStack", no_reboot=False, dry_run=False)
-        LOG.info("Image has been created state to %s." % image_id)
+                name), description="Image from OpenStack", no_reboot=False, dry_run=False)
+            LOG.info("Image has been created state to %s." % image_id)
         # The instance will be in pending state when it comes up, waiting for
         # it to be in available
         self._wait_for_image_state(image_id, "available")
-        # TODO we need to fix the queing issue in the images
+        # TODO we need to fix the queueing issue in the images
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
@@ -355,7 +339,6 @@ class EC2Driver(driver.ComputeDriver):
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
         LOG.info("***** Calling DESTROY *******************")
-        LOG.info(pprint.pprint(instance['metadata']))
 
         if 'ec2_id' not in instance['metadata']:
             LOG.warning(_("Key '%s' not in EC2 instances") % instance['name'], instance=instance)
