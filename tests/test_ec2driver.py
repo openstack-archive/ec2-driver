@@ -6,7 +6,7 @@ from ..credentials import get_nova_creds
 
 from boto import ec2
 from ..ec2driver_config import *
-
+import urllib2
 
 class EC2DriverTest(unittest.TestCase):
     _multiprocess_shared_ = True
@@ -163,6 +163,38 @@ class EC2DriverTest(unittest.TestCase):
         self.assertEqual(ec2_instance.instance_type, "t2.small")
         self.assertEqual(ip_before_resize, ip_after_resize,
                          "Public IP Address should be same before and after the resize")
+
+    def test_user_data(self):
+        """To test the spawn method by providing a file user_data for config drive.
+        Will bring up a LAMP server.
+        """
+        content = open('user_data', 'r')
+        user_data_content = content.read()
+        image = self.nova.images.find(name="cirros-0.3.1-x86_64-uec")
+        flavor = self.nova.flavors.find(name="m1.tiny")
+        server = self.nova.servers.create(name="cirros-test", image=image.id, flavor=flavor.id,
+                                          userdata=user_data_content)
+        instance = self.nova.servers.get(server.id)
+        while instance.status != 'ACTIVE':
+            time.sleep(10)
+            instance = self.nova.servers.get(server.id)
+        self.servers.append(instance)
+
+        ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[instance.metadata['ec2_id']], filters=None,
+                                                        dry_run=False, max_results=None)
+        print ec2_instance
+        print ec2_instance[0].ip_address
+        #getting the public ip of the ec2 instance
+        url = "http://"+ec2_instance[0].ip_address+"/phpinfo.php"
+
+        #wait for the instance to downalod all the dependencies for a LAMP server
+        time.sleep(300)
+        print url
+        raw_response = urllib2.urlopen(url)
+        print raw_response
+        self.assertEqual(raw_response.code, 200)
+
+
 
     @classmethod
     def tearDown(self):
