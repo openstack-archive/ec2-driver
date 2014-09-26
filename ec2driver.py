@@ -371,7 +371,7 @@ class EC2Driver(driver.ComputeDriver):
         if instance_name not in self._mounts:
             self._mounts[instance_name] = {}
         self._mounts[instance_name][mountpoint] = connection_info
-        return True
+        self.ec2_conn.attach_volume("vol-83db57cb", instance['metadata']['ec2_id'], "/dev/sdn", dry_run=False)
 
     def detach_volume(self, connection_info, instance, mountpoint,
                       encryption=None):
