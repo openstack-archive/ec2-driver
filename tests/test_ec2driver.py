@@ -194,8 +194,6 @@ class EC2DriverTest(unittest.TestCase):
         print raw_response
         self.assertEqual(raw_response.code, 200)
 
-
-
     @classmethod
     def tearDown(self):
         print "Cleanup: Destroying the instance used for testing"

@@ -371,7 +371,10 @@ class EC2Driver(driver.ComputeDriver):
         if instance_name not in self._mounts:
             self._mounts[instance_name] = {}
         self._mounts[instance_name][mountpoint] = connection_info
-        self.ec2_conn.attach_volume("vol-83db57cb", instance['metadata']['ec2_id'], "/dev/sdn", dry_run=False)
+
+        volume_id = connection_info['data']['volume_id']
+        # ec2 only attaches volumes at /dev/sdf through /dev/sdp
+        self.ec2_conn.attach_volume(volume_map[volume_id], instance['metadata']['ec2_id'], "/dev/sdn", dry_run=False)
 
     def detach_volume(self, connection_info, instance, mountpoint,
                       encryption=None):
@@ -380,7 +383,8 @@ class EC2Driver(driver.ComputeDriver):
             del self._mounts[instance['name']][mountpoint]
         except KeyError:
             pass
-        return True
+        volume_id = connection_info['data']['volume_id']
+        self.ec2_conn.detach_volume(volume_map[volume_id], instance_id=instance['metadata']['ec2_id'], device="/dev/sdn", force=False, dry_run=False)
 
     def swap_volume(self, old_connection_info, new_connection_info,
                     instance, mountpoint):
