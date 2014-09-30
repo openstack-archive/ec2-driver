@@ -61,8 +61,7 @@ CONF.register_opts(ec2driver_opts, 'ec2driver')
 
 TIME_BETWEEN_API_CALL_RETRIES = 1.0
 
-EC2_STATE_MAP = {
-        "pending" : power_state.NOSTATE,
+EC2_STATE_MAP = {"pending": power_state.NOSTATE,
         "running" : power_state.RUNNING,
         "shutting-down" : power_state.NOSTATE,
         "terminated" : power_state.SHUTDOWN,
@@ -571,13 +570,17 @@ class EC2Driver(driver.ComputeDriver):
         return
 
     def get_host_stats(self, refresh=False):
-        """Return EC2 Host Status of ram, disk, network."""
+        """Return EC2 Host Status of name, ram, disk, network."""
         stats = []
         for nodename in _EC2_NODES:
             host_status = self.host_status_base.copy()
             host_status['hypervisor_hostname'] = nodename
             host_status['host_hostname'] = nodename
             host_status['host_name_label'] = nodename
+            host_status['hypervisor_type'] = 'Amazon-EC2'
+            host_status['vcpus'] = VCPUS
+            host_status['memory_mb'] = MEMORY_IN_MBS
+            host_status['local_gb'] = DISK_IN_GB
             stats.append(host_status)
         if len(stats) == 0:
             raise exception.NovaException("EC2Driver has no node")

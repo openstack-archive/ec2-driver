@@ -35,6 +35,6 @@ keypair_map = {}
 
 # The limit on maximum resources you could have in the AWS EC2.
 
-cpu_units = 100
-memory_in_mbs = 88192
-disk_in_gb = 1028
+VCPUS = 100
+MEMORY_IN_MBS = 88192
+DISK_IN_GB = 1028
