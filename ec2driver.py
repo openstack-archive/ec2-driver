@@ -14,7 +14,6 @@
 #    under the License.
 
 """Connection to the Amazon Web Services - EC2 service"""
-
 from boto import ec2
 from ec2driver_config import *
 
@@ -339,7 +338,6 @@ class EC2Driver(driver.ComputeDriver):
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
         LOG.info("***** Calling DESTROY *******************")
-
         if 'ec2_id' not in instance['metadata']:
             LOG.warning(_("Key '%s' not in EC2 instances") % instance['name'], instance=instance)
             return
@@ -407,11 +405,15 @@ class EC2Driver(driver.ComputeDriver):
             raise exception.InterfaceDetachFailed('not attached')
 
     def get_info(self, instance):
-        if(instance['metadata'] is None or instance['metadata']['ec2_id'] is None):
+        if 'metadata' not in instance or 'ec2_id' not in instance['metadata']:
             raise exception.InstanceNotFound(instance_id=instance['name'])
 
         ec2_id = instance['metadata']['ec2_id']
-        ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False, max_results=None)[0]
+        ec2_instances = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False, max_results=None)
+        if ec2_instances.__len__() == 0:
+            LOG.warning(_("EC2 instance with ID %s not found") % ec2_id, instance=instance)
+            raise exception.InstanceNotFound(instance_id=instance['name'])
+        ec2_instance = ec2_instances[0]
         return {'state': EC2_STATE_MAP.get(ec2_instance.state),
                 'max_mem': 0,
                 'mem': 0,
