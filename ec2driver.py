@@ -15,6 +15,7 @@
 
 """Connection to the Amazon Web Services - EC2 service"""
 from boto import ec2
+from boto import exception as boto_exc
 from ec2driver_config import *
 
 from oslo.config import cfg
@@ -167,18 +168,21 @@ class EC2Driver(driver.ComputeDriver):
         if desired_state == 'running':
             timer = loopingcall.FixedIntervalLoopingCall(_wait_for_status_check)
             timer.start(interval=0.5).wait()
-
     def _wait_for_image_state(self, ami_id, desired_state):
         # Timer to wait for the iamge to reach a state
         def _wait_for_state():
             """Called at an interval until the AMI image is available."""
-            images = self.ec2_conn.get_all_images(image_ids=[ami_id], owners=None,
-                                                  executable_by=None, filters=None, dry_run=None)
-            state = images[0].state
-            # LOG.info("\n\n\nImage id = %s" % ami_id + ", state = %s\n\n\n" % state)
-            if state == desired_state:
-                LOG.info("Image has changed state to %s." % desired_state)
-                raise loopingcall.LoopingCallDone()
+            try:
+                images = self.ec2_conn.get_all_images(image_ids=[ami_id], owners=None,
+                                                      executable_by=None, filters=None, dry_run=None)
+                state = images[0].state
+                # LOG.info("\n\n\nImage id = %s" % ami_id + ", state = %s\n\n\n" % state)
+                if state == desired_state:
+                    LOG.info("Image has changed state to %s." % desired_state)
+                    raise loopingcall.LoopingCallDone()
+            except boto_exc.EC2ResponseError:
+                LOG.info("************** EC2ResponseError thrown!!! *****************************")
+                pass
 
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_state)
         timer.start(interval=0.5).wait()
