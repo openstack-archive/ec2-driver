@@ -62,7 +62,7 @@ CONF.register_opts(ec2driver_opts, 'ec2driver')
 TIME_BETWEEN_API_CALL_RETRIES = 1.0
 
 EC2_STATE_MAP = {
-        "pending" : power_state.NOSTATE,
+        "pending" : power_state.BUILDING,
         "running" : power_state.RUNNING,
         "shutting-down" : power_state.NOSTATE,
         "terminated" : power_state.SHUTDOWN,
