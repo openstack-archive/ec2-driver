@@ -32,6 +32,8 @@ from nova.virt import driver
 from nova.virt import virtapi
 from nova.compute import flavors
 import base64
+from novaclient.v1_1 import client
+from credentials import get_nova_creds
 
 LOG = logging.getLogger(__name__)
 
@@ -220,6 +222,7 @@ class EC2Driver(driver.ComputeDriver):
         """
 
         LOG.info("***** Calling SNAPSHOT *******************")
+
         if(instance['metadata']['ec2_id'] is None):
             raise exception.InstanceNotRunning(instance_id=instance['uuid'])
 
@@ -242,7 +245,18 @@ class EC2Driver(driver.ComputeDriver):
         # The instance will be in pending state when it comes up, waiting for
         # it to be in available
         self._wait_for_image_state(image_id, "available")
+
         # TODO we need to fix the queueing issue in the images
+        # image_api = glance.get_default_image_service()
+        # image_api.update(context, name, { 'status' : 'Active', 'size' : 0 })
+
+        # Saving the EC2 Image Id as metadata on Openstack side.
+        creds = get_nova_creds()
+        novaClient = client.Client(**creds)
+        image_manager = novaClient.images
+        image = image_manager.find(id=name)
+        image_manager.set_meta(image, metadata={'ec2_image_id' : image_id})
+
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
