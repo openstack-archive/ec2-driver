@@ -25,12 +25,14 @@ from nova.compute import power_state
 from nova.compute import task_states
 from nova import db
 from nova import exception
+from nova.image import glance
 from nova.openstack.common.gettextutils import _
 from nova.openstack.common import log as logging
 from nova.openstack.common import loopingcall
 from nova.virt import driver
 from nova.virt import virtapi
 from nova.compute import flavors
+from nova.compute import utils as compute_utils
 import base64
 from novaclient.v1_1 import client
 from credentials import get_nova_creds
@@ -38,6 +40,10 @@ from credentials import get_nova_creds
 LOG = logging.getLogger(__name__)
 
 ec2driver_opts = [
+    cfg.StrOpt('snapshot_image_format',
+               help='Snapshot image format (valid options are : '
+                    'raw, qcow2, vmdk, vdi). '
+                    'Defaults to same as source image'),
     cfg.StrOpt('datastore_regex',
                help='Regex to match the name of a datastore.'),
     cfg.FloatOpt('task_poll_interval',
@@ -147,48 +153,6 @@ class EC2Driver(driver.ComputeDriver):
         """Unplug VIFs from networks."""
         pass
 
-    def _wait_for_state(self, instance, ec2_id, desired_state, desired_power_state):
-        def _wait_for_power_state():
-            """Called at an interval until the VM is running again."""
-            ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])
-
-            state = ec2_instance[0].state
-            if state == desired_state:
-                LOG.info("Instance has changed state to %s." % desired_state)
-                raise loopingcall.LoopingCallDone()
-
-        def _wait_for_status_check():
-            ec2_instance = self.ec2_conn.get_all_instance_status(instance_ids=[ec2_id])[0]
-            if ec2_instance.system_status.status == 'ok':
-                LOG.info("Instance status check is %s / %s" %
-                         (ec2_instance.system_status.status, ec2_instance.instance_status.status))
-                raise loopingcall.LoopingCallDone()
-
-        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_power_state)
-        timer.start(interval=1).wait()
-
-        if desired_state == 'running':
-            timer = loopingcall.FixedIntervalLoopingCall(_wait_for_status_check)
-            timer.start(interval=0.5).wait()
-    def _wait_for_image_state(self, ami_id, desired_state):
-        # Timer to wait for the iamge to reach a state
-        def _wait_for_state():
-            """Called at an interval until the AMI image is available."""
-            try:
-                images = self.ec2_conn.get_all_images(image_ids=[ami_id], owners=None,
-                                                      executable_by=None, filters=None, dry_run=None)
-                state = images[0].state
-                # LOG.info("\n\n\nImage id = %s" % ami_id + ", state = %s\n\n\n" % state)
-                if state == desired_state:
-                    LOG.info("Image has changed state to %s." % desired_state)
-                    raise loopingcall.LoopingCallDone()
-            except boto_exc.EC2ResponseError:
-                LOG.info("************** EC2ResponseError thrown!!! *****************************")
-                pass
-
-        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_state)
-        timer.start(interval=0.5).wait()
-
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None):
         LOG.info("***** Calling SPAWN *******************")
@@ -210,12 +174,12 @@ class EC2Driver(driver.ComputeDriver):
 
         ec2_id = ec2_instance[0].id
         self._wait_for_state(instance, ec2_id, "running", power_state.RUNNING)
-        instance['metadata'].update({'ec2_id':ec2_instance[0].id, 'public_ip_address':elastic_ip_address.public_ip})
+        instance['metadata'].update({'ec2_id':ec2_id, 'public_ip_address':elastic_ip_address.public_ip})
 
         LOG.info("****** Associating the elastic IP to the instance *********")
         self.ec2_conn.associate_address(instance_id=ec2_id, allocation_id=elastic_ip_address.allocation_id)
 
-    def snapshot(self, context, instance, name, update_task_state):
+    def snapshot(self, context, instance, image_id, update_task_state):
         """
         Snapshot an image on EC2 and create an Image which gets stored in AMI (internally in EBS Snapshot)
 
@@ -239,24 +203,29 @@ class EC2Driver(driver.ComputeDriver):
             instance_ids=[ec2_id], filters=None, dry_run=False, max_results=None)
         ec2_instance = ec_instance_info[0]
         if ec2_instance.state == 'running':
-            image_id = ec2_instance.create_image(name=str(
-                name), description="Image from OpenStack", no_reboot=False, dry_run=False)
-            LOG.info("Image has been created state to %s." % image_id)
+            ec2_image_id = ec2_instance.create_image(name=str(
+                image_id), description="Image from OpenStack", no_reboot=False, dry_run=False)
+            LOG.info("Image has been created state to %s." % ec2_image_id)
         # The instance will be in pending state when it comes up, waiting for
         # it to be in available
-        self._wait_for_image_state(image_id, "available")
+        self._wait_for_image_state(ec2_image_id, "available")
 
-        # TODO we need to fix the queueing issue in the images
-        # image_api = glance.get_default_image_service()
-        # image_api.update(context, name, { 'status' : 'Active', 'size' : 0 })
+        image_api = glance.get_default_image_service()
+        image_ref = glance.generate_image_url(image_id)
 
-        # Saving the EC2 Image Id as metadata on Openstack side.
-        creds = get_nova_creds()
-        novaClient = client.Client(**creds)
-        image_manager = novaClient.images
-        image = image_manager.find(id=name)
-        image_manager.set_meta(image, metadata={'ec2_image_id' : image_id})
+        metadata = {'is_public': False,
+                    # 'checksum': '4eada48c2843d2a262c814ddc92ecf2c', #Hard-coded value for now
+                    'location': image_ref,
+                    'properties': {
+                                   'kernel_id': instance['kernel_id'],
+                                   'image_state': 'available',
+                                   'owner_id': instance['project_id'],
+                                   'ramdisk_id': instance['ramdisk_id'],
+                                   'ec2_image_id': ec2_image_id
+                                   }
+                    }
 
+        image_api.update(context, image_id, metadata)
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
@@ -644,6 +613,49 @@ class EC2Driver(driver.ComputeDriver):
 
     def list_instance_uuids(self):
         return []
+
+    def _wait_for_state(self, instance, ec2_id, desired_state, desired_power_state):
+        def _wait_for_power_state():
+            """Called at an interval until the VM is running again."""
+            ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])
+
+            state = ec2_instance[0].state
+            if state == desired_state:
+                LOG.info("Instance has changed state to %s." % desired_state)
+                raise loopingcall.LoopingCallDone()
+
+        def _wait_for_status_check():
+            ec2_instance = self.ec2_conn.get_all_instance_status(instance_ids=[ec2_id])[0]
+            if ec2_instance.system_status.status == 'ok':
+                LOG.info("Instance status check is %s / %s" %
+                         (ec2_instance.system_status.status, ec2_instance.instance_status.status))
+                raise loopingcall.LoopingCallDone()
+
+        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_power_state)
+        timer.start(interval=1).wait()
+
+        if desired_state == 'running':
+            timer = loopingcall.FixedIntervalLoopingCall(_wait_for_status_check)
+            timer.start(interval=0.5).wait()
+
+    def _wait_for_image_state(self, ami_id, desired_state):
+        # Timer to wait for the iamge to reach a state
+        def _wait_for_state():
+            """Called at an interval until the AMI image is available."""
+            try:
+                images = self.ec2_conn.get_all_images(image_ids=[ami_id], owners=None,
+                                                      executable_by=None, filters=None, dry_run=None)
+                state = images[0].state
+                # LOG.info("\n\n\nImage id = %s" % ami_id + ", state = %s\n\n\n" % state)
+                if state == desired_state:
+                    LOG.info("Image has changed state to %s." % desired_state)
+                    raise loopingcall.LoopingCallDone()
+            except boto_exc.EC2ResponseError:
+                pass
+
+        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_state)
+        timer.start(interval=0.5).wait()
+
 
 
 class EC2VirtAPI(virtapi.VirtAPI):
