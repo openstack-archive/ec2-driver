@@ -15,6 +15,7 @@
 
 """Connection to the Amazon Web Services - EC2 service"""
 from boto import ec2
+import boto.ec2.cloudwatch
 from boto import exception as boto_exc
 from ec2driver_config import *
 
@@ -32,7 +33,9 @@ from nova.openstack.common import loopingcall
 from nova.virt import driver
 from nova.virt import virtapi
 from nova.compute import flavors
+
 from nova.compute import utils as compute_utils
+
 import base64
 from novaclient.v1_1 import client
 from credentials import get_nova_creds
@@ -77,6 +80,8 @@ EC2_STATE_MAP = {
         "stopping" :power_state.NOSTATE,
         "stopped" : power_state.SHUTDOWN
 }
+
+DIAGNOSTIC_KEYS_TO_FILTER = ['group', 'block_device_mapping']
 
 def set_nodes(nodes):
     """Sets EC2Driver's node.list.
@@ -126,8 +131,13 @@ class EC2Driver(driver.ComputeDriver):
         self._mounts = {}
         self._interfaces = {}
 
-    # To connect to EC2
+        self.creds = get_nova_creds()
+        self.nova = client.Client(**self.creds)
+
+        # To connect to EC2
         self.ec2_conn = ec2.connect_to_region(
+            aws_region, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+        self.cloudwatch_conn = ec2.cloudwatch.connect_to_region(
             aws_region, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
 
         self.reservation = self.ec2_conn.get_all_reservations()
@@ -328,6 +338,10 @@ class EC2Driver(driver.ComputeDriver):
         if 'ec2_id' not in instance['metadata']:
             LOG.warning(_("Key '%s' not in EC2 instances") % instance['name'], instance=instance)
             return
+        elif 'public_ip' not in instance['metadata'] and 'public_ip_address' not in instance['metadata']:
+            print instance['metadata']
+            LOG.warning(_("Public IP is null"), instance=instance)
+            return
         else:
             # Deleting the instance from EC2
             ec2_id = instance['metadata']['ec2_id']
@@ -392,6 +406,7 @@ class EC2Driver(driver.ComputeDriver):
             raise exception.InterfaceDetachFailed('not attached')
 
     def get_info(self, instance):
+        LOG.info("*************** GET INFO ********************")
         if 'metadata' not in instance or 'ec2_id' not in instance['metadata']:
             raise exception.InstanceNotFound(instance_id=instance['name'])
 
@@ -407,23 +422,39 @@ class EC2Driver(driver.ComputeDriver):
                 'num_cpu': 2,
                 'cpu_time': 0}
 
+    def allow_key(self, key):
+        for key_to_filter in DIAGNOSTIC_KEYS_TO_FILTER:
+            if key == key_to_filter:
+                return False
+        return True
+
     def get_diagnostics(self, instance_name):
-        return {'cpu0_time': 17300000000,
-                'memory': 524288,
-                'vda_errors': -1,
-                'vda_read': 262144,
-                'vda_read_req': 112,
-                'vda_write': 5778432,
-                'vda_write_req': 488,
-                'vnet1_rx': 2070139,
-                'vnet1_rx_drop': 0,
-                'vnet1_rx_errors': 0,
-                'vnet1_rx_packets': 26701,
-                'vnet1_tx': 140208,
-                'vnet1_tx_drop': 0,
-                'vnet1_tx_errors': 0,
-                'vnet1_tx_packets': 662,
-                }
+        LOG.info("******* GET DIAGNOSTICS *********************************************")
+        instance = self.nova.servers.get(instance_name)
+
+        ec2_id = instance.metadata['ec2_id']
+        ec2_instances = self.ec2_conn.get_only_instances(instance_ids=[ec2_id], filters=None, dry_run=False, max_results=None)
+        if ec2_instances.__len__() == 0:
+            LOG.warning(_("EC2 instance with ID %s not found") % ec2_id, instance=instance)
+            raise exception.InstanceNotFound(instance_id=instance['name'])
+        ec2_instance = ec2_instances[0]
+
+        diagnostics = {}
+        for key, value in ec2_instance.__dict__.items() :
+            if self.allow_key(key):
+                diagnostics['instance.' + key] = str(value)
+
+
+        metrics = self.cloudwatch_conn.list_metrics(dimensions={'InstanceId': ec2_id})
+        import datetime
+        for metric in metrics:
+            end = datetime.datetime.utcnow()
+            start = end - datetime.timedelta(hours=1)
+            details = metric.query(start, end, 'Average', None, 3600)
+            if (len(details) > 0):
+                diagnostics['metrics.' + str(metric)] = details[0]
+
+        return diagnostics
 
     def get_all_bw_counters(self, instances):
         """Return bandwidth usage counters for each interface on each
