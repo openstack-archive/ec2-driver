@@ -31,11 +31,11 @@ class EC2DriverTest(unittest.TestCase):
             time.sleep(10)
             instance = self.nova.servers.get(server.id)
         self.servers.append(instance)
-        return instance
+        return instance, server.id
 
     def test_spawn(self):
         print "******* Spawn Test ***********"
-        instance = self.spawn_ec2_instance()
+        instance, instance_ref = self.spawn_ec2_instance()
 
         ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[instance.metadata['ec2_id']], filters=None,
                                                         dry_run=False, max_results=None)
@@ -45,7 +45,7 @@ class EC2DriverTest(unittest.TestCase):
 
     def test_destroy(self):
         print "******* Destroy Test ***********"
-        instance = self.spawn_ec2_instance()
+        instance, instance_ref = self.spawn_ec2_instance()
 
         ec2_id = instance.metadata['ec2_id']
 
@@ -73,7 +73,7 @@ class EC2DriverTest(unittest.TestCase):
 
     def test_power_off(self):
         print "******* Power Off Test ***********"
-        instance = self.spawn_ec2_instance()
+        instance, instance_ref = self.spawn_ec2_instance()
         # Send poweroff to the instance
         self.nova.servers.stop(instance)
 
@@ -88,7 +88,7 @@ class EC2DriverTest(unittest.TestCase):
 
     def test_soft_reboot(self):
         print "******* Soft Reboot Test ***********"
-        instance = self.spawn_ec2_instance()
+        instance, instance_ref = self.spawn_ec2_instance()
         # Send reboot to the instance with reboot_type = 'soft'
         self.nova.servers.reboot(instance, client.servers.REBOOT_SOFT)
 
@@ -110,7 +110,7 @@ class EC2DriverTest(unittest.TestCase):
 
     def test_hard_reboot(self):
         print "******* Hard Reboot Test ***********"
-        instance = self.spawn_ec2_instance()
+        instance, instance_ref = self.spawn_ec2_instance()
         # Send reboot to the instance with reboot_type = 'soft'
         self.nova.servers.reboot(instance, client.servers.REBOOT_HARD)
 
@@ -131,7 +131,7 @@ class EC2DriverTest(unittest.TestCase):
 
     def test_resize(self):
         print "******* Resize Test ***********"
-        instance = self.spawn_ec2_instance()
+        instance, instance_ref = self.spawn_ec2_instance()
 
         ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[instance.metadata['ec2_id']], filters=None,
                                                         dry_run=False, max_results=None)[0]
@@ -175,7 +175,7 @@ class EC2DriverTest(unittest.TestCase):
         server = self.nova.servers.create(name="cirros-test", image=image.id, flavor=flavor.id,
                                           userdata=user_data_content)
         instance = self.nova.servers.get(server.id)
-        while instance.status != 'ACTIVE':
+        while instance.status != 'ACTIVE' and 'ec2_id' not in instance.metadata:
             time.sleep(10)
             instance = self.nova.servers.get(server.id)
         self.servers.append(instance)
@@ -193,6 +193,16 @@ class EC2DriverTest(unittest.TestCase):
         raw_response = urllib2.urlopen(url)
         print raw_response
         self.assertEqual(raw_response.code, 200)
+
+    def test_diagnostics(self):
+        print "******* Diagnostics Test ***********"
+        instance, instance_ref = self.spawn_ec2_instance()
+        print "instance_ref: ", instance_ref
+
+        diagnostics = instance.diagnostics()[1]
+
+        self.assertEqual(diagnostics['instance.instance_type'], 't2.micro')
+        self.assertEqual(diagnostics['instance._state'], 'running(16)')
 
     @classmethod
     def tearDown(self):
