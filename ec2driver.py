@@ -14,13 +14,17 @@
 #    under the License.
 
 """Connection to the Amazon Web Services - EC2 service"""
+from threading import Lock
+import base64
+
 from boto import ec2
 import boto.ec2.cloudwatch
 from boto import exception as boto_exc
-from ec2driver_config import *
-
+from boto.exception import EC2ResponseError
 from oslo.config import cfg
+from novaclient.v1_1 import client
 
+from ec2driver_config import *
 from nova import block_device
 from nova.compute import power_state
 from nova.compute import task_states
@@ -33,11 +37,6 @@ from nova.openstack.common import loopingcall
 from nova.virt import driver
 from nova.virt import virtapi
 from nova.compute import flavors
-
-from nova.compute import utils as compute_utils
-
-import base64
-from novaclient.v1_1 import client
 from credentials import get_nova_creds
 
 LOG = logging.getLogger(__name__)
@@ -145,6 +144,8 @@ class EC2Driver(driver.ComputeDriver):
             aws_region, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
 
         self.reservation = self.ec2_conn.get_all_reservations()
+
+        self.security_group_lock = Lock()
 
         if not '_EC2_NODES' in globals():
             set_nodes([CONF.host])
@@ -499,13 +500,56 @@ class EC2Driver(driver.ComputeDriver):
                 'username': 'EC2user',
                 'password': 'EC2password'}
 
+    def _get_ec2_instance_ids_for_security_group(self, ec2_security_group):
+        return [instance.id for instance in ec2_security_group.instances()]
+
+    def _get_openstack_instances_for_security_group(self, openstack_security_group):
+        return [instance for instance in (self.nova.servers.list())
+                if openstack_security_group.name in [group['name'] for group in instance.security_groups]]
+
+    def _get_id_of_ec2_instance_to_update(self, ec2_security_group, openstack_security_group):
+        return [openstack_instance.metadata['ec2_id']
+                for openstack_instance
+                in self._get_openstack_instances_for_security_group(openstack_security_group)
+                if openstack_instance.metadata['ec2_id']
+                not in self._get_ec2_instance_ids_for_security_group(ec2_security_group)][0]
+
+    def _add_security_group_to_instance(self, ec2_instance_id, ec2_security_group):
+        security_groups_for_instance = self.ec2_conn.get_instance_attribute(ec2_instance_id, "groupSet")['groupSet']
+        security_group_ids_for_instance = [group.id for group in security_groups_for_instance]
+        security_group_ids_for_instance.append(ec2_security_group.id)
+        self.ec2_conn.modify_instance_attribute(ec2_instance_id, "groupSet", security_group_ids_for_instance)
+
     def refresh_security_group_rules(self, security_group_id):
+        LOG.info("************** REFRESH SECURITY GROUP RULES ******************")
+
+        openstack_security_group = self.nova.security_groups.get(security_group_id)
+
+        try:
+            ec2_security_group = self.ec2_conn.get_all_security_groups(openstack_security_group.name)[0]
+        except EC2ResponseError as e:
+            ec2_security_group = self.ec2_conn.create_security_group(openstack_security_group.name, openstack_security_group.description)
+            LOG.warning(e.body)
+
+        ec2_instance_id_to_update = self._get_id_of_ec2_instance_to_update(ec2_security_group, openstack_security_group)
+
+        self.security_group_lock.acquire()
+
+        try:
+            self._add_security_group_to_instance(ec2_instance_id_to_update, ec2_security_group)
+        finally:
+            self.security_group_lock.release()
+
         return True
 
     def refresh_security_group_members(self, security_group_id):
+        LOG.info("************** REFRESH SECURITY GROUP MEMBERS ******************")
+        LOG.info(security_group_id)
         return True
 
     def refresh_instance_security_rules(self, instance):
+        LOG.info("************** REFRESH INSTANCE SECURITY RULES ******************")
+        LOG.info(instance)
         return True
 
     def refresh_provider_fw_rules(self):
