@@ -514,17 +514,39 @@ class EC2Driver(driver.ComputeDriver):
         return [instance for instance in (self.nova.servers.list())
                 if openstack_security_group.name in [group['name'] for group in instance.security_groups]]
 
-    def _get_id_of_ec2_instance_to_update(self, ec2_security_group, openstack_security_group):
-        return [openstack_instance.metadata['ec2_id']
-                for openstack_instance
-                in self._get_openstack_instances_for_security_group(openstack_security_group)
-                if openstack_instance.metadata['ec2_id']
-                not in self._get_ec2_instance_ids_for_security_group(ec2_security_group)][0]
+    def _get_id_of_ec2_instance_to_add_security_group(self, ec2_security_group, openstack_security_group):
+        ec2_ids_of_instances_with_security_group_in_openstack_and_not_in_ec2 = [
+            openstack_instance.metadata['ec2_id'] for openstack_instance
+            in self._get_openstack_instances_for_security_group(openstack_security_group)
+            if openstack_instance.metadata['ec2_id'] not in self._get_ec2_instance_ids_for_security_group(ec2_security_group)
+        ]
+
+        if not ec2_ids_of_instances_with_security_group_in_openstack_and_not_in_ec2:
+            return None
+        else:
+            return ec2_ids_of_instances_with_security_group_in_openstack_and_not_in_ec2[0]
+
+    def _get_id_of_ec2_instance_to_remove_security_group(self, ec2_security_group, openstack_security_group):
+        ec2_ids_of_instances_with_security_group_in_ec2_and_not_in_openstack = [
+            id for id in self._get_ec2_instance_ids_for_security_group(ec2_security_group)
+            if id not in self._get_openstack_instances_for_security_group(openstack_security_group)
+        ]
+
+        if not ec2_ids_of_instances_with_security_group_in_ec2_and_not_in_openstack:
+            return None
+        else:
+            return ec2_ids_of_instances_with_security_group_in_ec2_and_not_in_openstack[0]
 
     def _add_security_group_to_instance(self, ec2_instance_id, ec2_security_group):
         security_groups_for_instance = self.ec2_conn.get_instance_attribute(ec2_instance_id, "groupSet")['groupSet']
         security_group_ids_for_instance = [group.id for group in security_groups_for_instance]
         security_group_ids_for_instance.append(ec2_security_group.id)
+        self.ec2_conn.modify_instance_attribute(ec2_instance_id, "groupSet", security_group_ids_for_instance)
+
+    def _remove_security_group_from_instance(self, ec2_instance_id, ec2_security_group):
+        security_groups_for_instance = self.ec2_conn.get_instance_attribute(ec2_instance_id, "groupSet")['groupSet']
+        security_group_ids_for_instance = [group.id for group in security_groups_for_instance]
+        security_group_ids_for_instance.remove(ec2_security_group.id)
         self.ec2_conn.modify_instance_attribute(ec2_instance_id, "groupSet", security_group_ids_for_instance)
 
     def refresh_security_group_rules(self, security_group_id):
@@ -538,14 +560,23 @@ class EC2Driver(driver.ComputeDriver):
             ec2_security_group = self.ec2_conn.create_security_group(openstack_security_group.name, openstack_security_group.description)
             LOG.warning(e.body)
 
-        ec2_instance_id_to_update = self._get_id_of_ec2_instance_to_update(ec2_security_group, openstack_security_group)
+        ec2_instance_id_to_add_security_group = self._get_id_of_ec2_instance_to_add_security_group(ec2_security_group, openstack_security_group)
 
-        self.security_group_lock.acquire()
+        if ec2_instance_id_to_add_security_group:
+            self.security_group_lock.acquire()
 
-        try:
-            self._add_security_group_to_instance(ec2_instance_id_to_update, ec2_security_group)
-        finally:
-            self.security_group_lock.release()
+            try:
+                self._add_security_group_to_instance(ec2_instance_id_to_add_security_group, ec2_security_group)
+            finally:
+                self.security_group_lock.release()
+        else:
+            ec2_instance_id_to_remove_security_group = self._get_id_of_ec2_instance_to_remove_security_group(ec2_security_group, openstack_security_group)
+            self.security_group_lock.acquire()
+
+            try:
+                self._remove_security_group_from_instance(ec2_instance_id_to_remove_security_group, ec2_security_group)
+            finally:
+                self.security_group_lock.release()
 
         return True
 
