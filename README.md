@@ -11,6 +11,9 @@ Using the native OpenStack Dashboard or APIs you would be able to manage the EC2
 * Python 2.7 and above
 * Amazon Web Service (AWS) SDK for Python --  Boto 2.31.1
 
+1. In the config file set the number of CPU units, Memory and storage that you would like to allocate in EC2 at the disposal.
+
+
 ##Dev Environment Setup
 
 ###Requirements

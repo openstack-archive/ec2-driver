@@ -71,12 +71,8 @@ CONF.register_opts(ec2driver_opts, 'ec2driver')
 
 TIME_BETWEEN_API_CALL_RETRIES = 1.0
 
-<<<<<<< HEAD
-EC2_STATE_MAP = {"pending": power_state.NOSTATE,
-=======
 EC2_STATE_MAP = {
         "pending" : power_state.BUILDING,
->>>>>>> FETCH_HEAD
         "running" : power_state.RUNNING,
         "shutting-down" : power_state.NOSTATE,
         "terminated" : power_state.SHUTDOWN,
@@ -564,8 +560,8 @@ class EC2Driver(driver.ComputeDriver):
         if nodename not in _EC2_NODES:
             return {}
 
-        dic = {'vcpus': cpu_units,
-               'memory_mb': memory_in_mbs,
+        dic = {'vcpus': VCPUS,
+               'memory_mb': MEMORY_IN_MBS,
                'local_gb': 1028,
                'vcpus_used': 0,
                'memory_mb_used': 0,
