@@ -29,8 +29,8 @@ flavor_map = {'m1.tiny': 't2.micro', 'm1.small': 't2.small', 'm1.medium': 't2.me
               'm1.xlarge': 'c3.2xlarge'}
 #Add image maps key: image in openstack, Value: EC2_AMI_ID
 image_map = {}
-volume_map = {'46c7a63e-1069-4049-a4a4-648c905bf205': 'vol-83db57cb',
-			  '5c15bca3-fecc-4ed5-86aa-aefacb514c41': 'vol-83db57cb'}
+volume_map = {'3df37a34-662e-4aa8-b71d-b8313d2e945b': 'vol-83db57cb',
+			  '7d63c661-7e93-445b-b3cb-765f1c8ae4c0': 'vol-1eea8a56'}
 keypair_map = {}
 
 # The limit on maximum resources you could have in the AWS EC2.

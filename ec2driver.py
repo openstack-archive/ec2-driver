@@ -37,6 +37,9 @@ from nova.openstack.common import loopingcall
 from nova.virt import driver
 from nova.virt import virtapi
 from nova.compute import flavors
+import base64
+import time
+from novaclient.v1_1 import client
 from credentials import get_nova_creds
 
 LOG = logging.getLogger(__name__)
@@ -393,6 +396,14 @@ class EC2Driver(driver.ComputeDriver):
         if instance_name not in self._mounts:
             self._mounts[instance_name] = {}
         self._mounts[instance_name][mountpoint] = new_connection_info
+
+        old_volume_id = old_connection_info['data']['volume_id']
+        new_volume_id = new_connection_info['data']['volume_id']
+
+        self.detach_volume(old_connection_info, instance, mountpoint)
+        # wait for the old volume to detach successfully to make sure /dev/sdn is available for the new volume to be attached
+        time.sleep(60)
+        self.ec2_conn.attach_volume(volume_map[new_volume_id], instance['metadata']['ec2_id'], "/dev/sdn", dry_run=False)
         return True
 
     def attach_interface(self, instance, image_meta, vif):
