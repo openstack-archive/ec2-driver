@@ -25,8 +25,8 @@ aws_ami = "ami-785bae10"
 #aws_ami = "ami-864d84ee"
 instance_type = "t2.micro"
 
-flavor_map = {'m1.tiny': 't2.micro', 'm1.small': 't2.small', 'm1.medium': 't2.medium', 'm1.large': 'c3.xlarge',
-              'm1.xlarge': 'c3.2xlarge'}
+# Mapping OpenStack's flavor IDs(which seems to be randomly assigned) to EC2's flavor names
+flavor_map = {2: 't2.micro', 5: 't2.small', 1: 't2.medium', 3: 'c3.xlarge', 4: 'c3.2xlarge'}
 #Add image maps key: image in openstack, Value: EC2_AMI_ID
 image_map = {}
 volume_map = {'3df37a34-662e-4aa8-b71d-b8313d2e945b': 'vol-83db57cb',

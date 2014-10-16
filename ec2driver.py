@@ -175,7 +175,7 @@ class EC2Driver(driver.ComputeDriver):
         elastic_ip_address = self.ec2_conn.allocate_address(domain='vpc')
 
         #Creating the EC2 instance
-        flavor_type = flavor_map[instance.get_flavor().name]
+        flavor_type = flavor_map[instance.get_flavor().id]
 
         #passing user_data from the openstack instance which is Base64 encoded after decoding it.
         user_data = instance._user_data
@@ -619,14 +619,12 @@ class EC2Driver(driver.ComputeDriver):
         ec_instance_info = self.ec2_conn.get_only_instances(
             instance_ids=[ec2_id], filters=None, dry_run=False, max_results=None)
         ec2_instance = ec_instance_info[0]
-        new_instance_type_name = flavors.get_flavor(
-            migration['new_instance_type_id'])['name']
 
         # EC2 instance needs to be stopped to modify it's attribute. So we stop the instance,
         # modify the instance type in this case, and then restart the instance.
         ec2_instance.stop()
         self._wait_for_state(instance, ec2_id, "stopped", power_state.SHUTDOWN)
-        new_instance_type = flavor_map[new_instance_type_name]
+        new_instance_type = flavor_map[migration['new_instance_type_id']]
         ec2_instance.modify_attribute('instanceType', new_instance_type)
 
     def confirm_migration(self, migration, instance, network_info):
