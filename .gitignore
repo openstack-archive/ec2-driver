@@ -1,2 +1,4 @@
 *.pyc
 .vagrant
+.idea
+*.swp
