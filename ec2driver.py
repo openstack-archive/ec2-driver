@@ -23,6 +23,7 @@ from boto import exception as boto_exc
 from boto.exception import EC2ResponseError
 from credentials import get_nova_creds
 
+from boto.regioninfo import RegionInfo
 from oslo.config import cfg
 from novaclient.v1_1 import client
 from nova import block_device
@@ -133,12 +134,22 @@ class EC2Driver(driver.ComputeDriver):
         self.nova = client.Client(**self.creds)
 
         # To connect to EC2
-        self.ec2_conn = ec2.connect_to_region(
-            aws_region, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
-        self.cloudwatch_conn = ec2.cloudwatch.connect_to_region(
-            aws_region, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+        # self.ec2_conn = ec2.connect_to_region(
+        #     aws_region, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
 
-        self.reservation = self.ec2_conn.get_all_reservations()
+        moto_region = RegionInfo(name=aws_region, endpoint=aws_endpoint)
+        self.ec2_conn = ec2.EC2Connection(aws_access_key_id=aws_access_key_id,
+                                         aws_secret_access_key=aws_secret_access_key,
+                                         host=host,
+                                         port=port,
+                                         region = moto_region,
+                                         is_secure=secure)
+        self.cloudwatch_conn = None
+
+        # self.cloudwatch_conn = ec2.cloudwatch.connect_to_region(
+        #     aws_region, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+
+        # self.reservation = self.ec2_conn.get_all_reservations()
 
         self.security_group_lock = Lock()
 
@@ -368,15 +379,17 @@ class EC2Driver(driver.ComputeDriver):
         else:
             # Deleting the instance from EC2
             ec2_id = instance['metadata']['ec2_id']
-            ec2_instances = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])
+            try:
+                ec2_instances = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])
+            except Exception:
+                return
             if ec2_instances.__len__() == 0:
                 LOG.warning(_("EC2 instance with ID %s not found") % ec2_id, instance=instance)
                 return
             else:
                 # get the elastic ip associated with the instance & disassociate
                 # it, and release it
-                ec2_instance = ec2_instances[0]
-                elastic_ip_address = self.ec2_conn.get_all_addresses(addresses=[ec2_instance.ip_address])[0]
+                elastic_ip_address = self.ec2_conn.get_all_addresses(addresses=instance['metadata']['public_ip_address'])[0]
                 LOG.info("****** Disassociating the elastic IP *********")
                 self.ec2_conn.disassociate_address(elastic_ip_address.public_ip)
 
