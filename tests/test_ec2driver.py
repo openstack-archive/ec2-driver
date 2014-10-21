@@ -16,8 +16,13 @@ class EC2DriverTest(unittest.TestCase):
         print "Establishing connection with AWS"
         self.ec2_conn = ec2.connect_to_region(aws_region, aws_access_key_id=aws_access_key_id,
                                               aws_secret_access_key=aws_secret_access_key)
+        # nova client for nova
         self.creds = get_nova_creds()
         self.nova = client.Client(**self.creds)
+
+        # nova client for cinder
+        self.creds['service_type'] = 'volume'
+        self.nova_volume = client.Client(**self.creds)
         self.servers = []
 
     def spawn_ec2_instance(self):
@@ -205,10 +210,7 @@ class EC2DriverTest(unittest.TestCase):
         self.assertEqual(diagnostics['instance._state'], 'running(16)')
 
     def test_attach_volume(self):
-        creds = get_nova_creds()
-        creds['service_type'] = 'volume'
-        nova = client.Client(**creds)
-        volume = nova.volumes.create(1, snapshot_id=None, display_name='test', display_description=None, volume_type=None, availability_zone=None, imageRef=None)
+        volume = self.nova_volume.volumes.create(1, snapshot_id=None, display_name='test', display_description=None, volume_type=None, availability_zone=None, imageRef=None)
         instance, instance_ref = self.spawn_ec2_instance()
         self.nova.volumes.create_server_volume(instance_ref, volume.id, "/dev/sdb")
         time.sleep(30)
