@@ -204,6 +204,17 @@ class EC2DriverTest(unittest.TestCase):
         self.assertEqual(diagnostics['instance.instance_type'], 't2.micro')
         self.assertEqual(diagnostics['instance._state'], 'running(16)')
 
+    def test_attach_volume(self):
+        creds = get_nova_creds()
+        creds['service_type'] = 'volume'
+        nova = client.Client(**creds)
+        volume = nova.volumes.create(1, snapshot_id=None, display_name='test', display_description=None, volume_type=None, availability_zone=None, imageRef=None)
+        instance, instance_ref = self.spawn_ec2_instance()
+        self.nova.volumes.create_server_volume(instance_ref, volume.id, "/dev/sdb")
+        time.sleep(30)
+        volumes = self.nova.volumes.get_server_volumes(instance.id)
+        self.assertIn(volume, volumes)
+
     @classmethod
     def tearDown(self):
         print "Cleanup: Destroying the instance used for testing"

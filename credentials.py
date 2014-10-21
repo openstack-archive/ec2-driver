@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import os
 
-
 def get_nova_creds():
     d = {}
     d['username'] = os.environ['OS_USERNAME']
