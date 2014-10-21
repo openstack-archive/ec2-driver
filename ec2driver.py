@@ -16,6 +16,7 @@
 """Connection to the Amazon Web Services - EC2 service"""
 from threading import Lock
 import base64
+import time
 from ec2driver_config import *
 from boto import ec2
 import boto.ec2.cloudwatch
