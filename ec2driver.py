@@ -16,15 +16,15 @@
 """Connection to the Amazon Web Services - EC2 service"""
 from threading import Lock
 import base64
-
+from ec2driver_config import *
 from boto import ec2
 import boto.ec2.cloudwatch
 from boto import exception as boto_exc
 from boto.exception import EC2ResponseError
+from credentials import get_nova_creds
+
 from oslo.config import cfg
 from novaclient.v1_1 import client
-
-from ec2driver_config import *
 from nova import block_device
 from nova.compute import power_state
 from nova.compute import task_states
@@ -37,10 +37,6 @@ from nova.openstack.common import loopingcall
 from nova.virt import driver
 from nova.virt import virtapi
 from nova.compute import flavors
-import base64
-import time
-from novaclient.v1_1 import client
-from credentials import get_nova_creds
 
 LOG = logging.getLogger(__name__)
 
@@ -118,9 +114,9 @@ class EC2Driver(driver.ComputeDriver):
     def __init__(self, virtapi, read_only=False):
         super(EC2Driver, self).__init__(virtapi)
         self.host_status_base = {
-            'vcpus': 100000,
-            'memory_mb': 8000000000,
-            'local_gb': 600000000000,
+            'vcpus': VCPUS,
+            'memory_mb': MEMORY_IN_MBS,
+            'local_gb': DISK_IN_GB,
             'vcpus_used': 0,
             'memory_mb_used': 0,
             'local_gb_used': 100000000000,
@@ -150,9 +146,15 @@ class EC2Driver(driver.ComputeDriver):
             set_nodes([CONF.host])
 
     def init_host(self, host):
+        """Initialize anything that is necessary for the driver to function,
+        including catching up with currently running VM's on the given host.
+        """
         return
 
     def list_instances(self):
+        """Return the names of all the instances known to the virtualization
+        layer, as a list.
+        """
         all_instances = self.ec2_conn.get_all_instances()
         instance_ids = []
         for instance in all_instances:
@@ -169,6 +171,27 @@ class EC2Driver(driver.ComputeDriver):
 
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None):
+        """Create a new instance/VM/domain on the virtualization platform.
+        Once this successfully completes, the instance should be
+        running (power_state.RUNNING).
+
+        If this fails, any partial instance should be completely
+        cleaned up, and the virtualization platform should be in the state
+        that it was before this call began.
+
+        :param context: security context <Not Yet Implemented>
+        :param instance: nova.objects.instance.Instance
+                         This function should use the data there to guide
+                         the creation of the new instance.
+        :param image_meta: image object returned by nova.image.glance that
+                           defines the image from which to boot this instance
+        :param injected_files: User files to inject into instance.
+        :param admin_password: set in instance. <Not Yet Implemented>
+        :param network_info:
+           :py:meth:`~nova.network.manager.NetworkManager.get_instance_nw_info`
+        :param block_device_info: Information about block devices to be
+                                  attached to the instance.
+        """
         LOG.info("***** Calling SPAWN *******************")
         LOG.info("****** %s" % instance._user_data)
         LOG.info("****** Allocating an elastic IP *********")
@@ -194,24 +217,21 @@ class EC2Driver(driver.ComputeDriver):
         self.ec2_conn.associate_address(instance_id=ec2_id, allocation_id=elastic_ip_address.allocation_id)
 
     def snapshot(self, context, instance, image_id, update_task_state):
+        """Snapshot an image of the specified instance
+        on EC2 and create an Image which gets stored in AMI (internally in EBS Snapshot)
+        :param context: security context
+        :param instance: nova.objects.instance.Instance
+        :param image_id: Reference to a pre-created image that will hold the snapshot.
         """
-        Snapshot an image on EC2 and create an Image which gets stored in AMI (internally in EBS Snapshot)
-
-        """
-
         LOG.info("***** Calling SNAPSHOT *******************")
 
-        if(instance['metadata']['ec2_id'] is None):
+        if instance['metadata']['ec2_id'] is None:
             raise exception.InstanceNotRunning(instance_id=instance['uuid'])
 
         # Adding the below line only alters the state of the instance and not
         # its image in OpenStack.
         update_task_state(
             task_state=task_states.IMAGE_UPLOADING, expected_state=task_states.IMAGE_SNAPSHOT)
-
-        # TODO change the image status to Active instead of in saving or
-        # queuing
-
         ec2_id = instance['metadata']['ec2_id']
         ec_instance_info = self.ec2_conn.get_only_instances(
             instance_ids=[ec2_id], filters=None, dry_run=False, max_results=None)
@@ -220,15 +240,14 @@ class EC2Driver(driver.ComputeDriver):
             ec2_image_id = ec2_instance.create_image(name=str(
                 image_id), description="Image from OpenStack", no_reboot=False, dry_run=False)
             LOG.info("Image has been created state to %s." % ec2_image_id)
-        # The instance will be in pending state when it comes up, waiting for
-        # it to be in available
+
+        # The instance will be in pending state when it comes up, waiting forit to be in available
         self._wait_for_image_state(ec2_image_id, "available")
 
         image_api = glance.get_default_image_service()
         image_ref = glance.generate_image_url(image_id)
 
         metadata = {'is_public': False,
-                    # 'checksum': '4eada48c2843d2a262c814ddc92ecf2c', #Hard-coded value for now
                     'location': image_ref,
                     'properties': {
                                    'kernel_id': instance['kernel_id'],
@@ -236,7 +255,7 @@ class EC2Driver(driver.ComputeDriver):
                                    'owner_id': instance['project_id'],
                                    'ramdisk_id': instance['ramdisk_id'],
                                    'ec2_image_id': ec2_image_id
-                                   }
+                    }
                     }
 
         image_api.update(context, image_id, metadata)
