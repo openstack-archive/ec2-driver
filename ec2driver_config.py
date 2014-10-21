@@ -1,6 +1,6 @@
 import os
 
-if os.environ.get('TEST'):
+if os.environ.get('MOCK_EC2'):
     print "test environment"
     from ec2driver_test_config import *
 else:

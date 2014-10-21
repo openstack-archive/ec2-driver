@@ -11,7 +11,7 @@ from ..ec2driver_config import *
 
 
 def sleep_if_ec2_not_mocked(seconds):
-    if not os.environ.get('TEST'):
+    if not os.environ.get('MOCK_EC2'):
         time.sleep(seconds)
 
 
