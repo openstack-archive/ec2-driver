@@ -144,12 +144,9 @@ class EC2Driver(driver.ComputeDriver):
                                          port=port,
                                          region = moto_region,
                                          is_secure=secure)
-        self.cloudwatch_conn = None
 
-        # self.cloudwatch_conn = ec2.cloudwatch.connect_to_region(
-        #     aws_region, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
-
-        # self.reservation = self.ec2_conn.get_all_reservations()
+        self.cloudwatch_conn = ec2.cloudwatch.connect_to_region(
+            aws_region, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
 
         self.security_group_lock = Lock()
 
