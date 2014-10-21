@@ -179,7 +179,7 @@ class EC2DriverTest(unittest.TestCase):
 
         self.assertEqual(ip_before_resize.public_ip, ip_after_resize.public_ip)
 
-    @unittest.skipIf(os.environ.get('TEST'), 'Not supported by moto')
+    @unittest.skipIf(os.environ.get('MOCK_EC2'), 'Not supported by moto')
     def test_user_data(self):
          """To test the spawn method by providing a file user_data for config drive.
          Will bring up a LAMP server.
@@ -210,7 +210,7 @@ class EC2DriverTest(unittest.TestCase):
          print raw_response
          self.assertEqual(raw_response.code, 200)
 
-    @unittest.skipIf(os.environ.get('TEST'), 'Not supported by moto')
+    @unittest.skipIf(os.environ.get('MOCK_EC2'), 'Not supported by moto')
     def test_diagnostics(self):
          print "******* Diagnostics Test ***********"
          instance, instance_ref = self.spawn_ec2_instance()
