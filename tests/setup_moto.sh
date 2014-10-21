@@ -1,5 +1,10 @@
 #! /usr/bin/env bash
 
+if [ ! -d "logs" ]; then
+    echo "Making logs directory"
+    mkdir logs
+fi
+
 echo "Setting environment variable MOCK_EC2=True"
 export MOCK_EC2=True
 
