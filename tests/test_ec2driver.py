@@ -24,6 +24,7 @@ class EC2DriverTest(unittest.TestCase):
         self.creds['service_type'] = 'volume'
         self.nova_volume = client.Client(**self.creds)
         self.servers = []
+        self.volumes = []
 
     def spawn_ec2_instance(self):
         print "Spawning an instance"
@@ -211,6 +212,7 @@ class EC2DriverTest(unittest.TestCase):
 
     def test_attach_volume(self):
         volume = self.nova_volume.volumes.create(1, snapshot_id=None, display_name='test', display_description=None, volume_type=None, availability_zone=None, imageRef=None)
+        self.volumes.append(volume)
         instance, instance_ref = self.spawn_ec2_instance()
         self.nova.volumes.create_server_volume(instance_ref, volume.id, "/dev/sdb")
         time.sleep(30)
@@ -222,6 +224,10 @@ class EC2DriverTest(unittest.TestCase):
         print "Cleanup: Destroying the instance used for testing"
         for instance in self.servers:
             instance.delete()
+        # wait for all instances to completely shut down and detach volumes if any
+        time.sleep(120)
+        for volume in self.volumes:
+            volume.delete()
 
 if __name__ == '__main__':
     unittest.main()
