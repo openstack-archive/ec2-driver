@@ -16,9 +16,13 @@
 # to connect to the AWS Public cloud.
 from collections import defaultdict
 
-aws_region = "us-east-1"
-aws_access_key_id = "AKIAIZJDDRNNJUWZ3LXA"
-aws_secret_access_key = "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"
+aws_region = 'us-east-1'
+aws_endpoint = 'ec2.us-east-1.amazonaws.com'
+aws_access_key_id = 'AKIAIZJDDRNNJUWZ3LXA'
+aws_secret_access_key = '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'
+port = 443
+host = str(port) + ":" + aws_endpoint
+secure = True
 
 #Adding a Red Hat Linux image below
 aws_ami = "ami-785bae10"

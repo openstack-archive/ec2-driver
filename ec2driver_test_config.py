@@ -17,11 +17,11 @@
 from collections import defaultdict
 
 aws_region = "moto_region"
-aws_endpoint = "localhost:1234"
+aws_endpoint = "localhost"
 aws_access_key_id = 'the_key'
 aws_secret_access_key = 'the_secret'
-host = '0.0.0.0'
-port = '1234'
+port = 1234
+host = str(port) + ":" + aws_endpoint
 secure = False
 
 #Adding a Red Hat Linux image below
