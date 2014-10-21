@@ -1,3 +1,5 @@
 *.pyc
 .vagrant
 .idea
+*.swp
+tests/logs/

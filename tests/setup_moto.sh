@@ -1,0 +1,8 @@
+#! /usr/bin/env bash
+
+echo "Setting environment variable TEST=True"
+export TEST=True
+
+echo "Restarting moto"
+ps aux | grep moto_server | grep -v grep | awk '{print $2}' | xargs kill -9
+moto_server ec2 -p1234  > logs/moto_log.txt 2>&1 &
