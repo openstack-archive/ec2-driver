@@ -1,4 +1,3 @@
-import os
 import unittest
 import time
 
@@ -8,6 +7,7 @@ from boto import ec2
 
 from ..credentials import get_nova_creds
 from ..ec2driver_config import *
+
 
 class EC2TestBase(unittest.TestCase):
     @staticmethod

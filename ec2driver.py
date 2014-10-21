@@ -19,7 +19,6 @@ import base64
 import time
 from ec2driver_config import *
 from boto import ec2
-import boto.ec2.cloudwatch
 from boto import exception as boto_exc
 from boto.exception import EC2ResponseError
 from credentials import get_nova_creds
@@ -27,6 +26,7 @@ from credentials import get_nova_creds
 from boto.regioninfo import RegionInfo
 from oslo.config import cfg
 from novaclient.v1_1 import client
+from ec2driver_config import *
 from nova import block_device
 from nova.compute import power_state
 from nova.compute import task_states
@@ -39,6 +39,8 @@ from nova.openstack.common import loopingcall
 from nova.virt import driver
 from nova.virt import virtapi
 from nova.compute import flavors
+from novaclient.v1_1 import client
+from credentials import get_nova_creds
 
 LOG = logging.getLogger(__name__)
 
@@ -533,10 +535,10 @@ class EC2Driver(driver.ComputeDriver):
                 'username': 'EC2user',
                 'password': 'EC2password'}
 
-    def _get_ec2_instance_ids_for_security_group(self, ec2_security_group):
+    def _get_ec2_instance_ids_with_security_group(self, ec2_security_group):
         return [instance.id for instance in ec2_security_group.instances()]
 
-    def _get_openstack_instances_for_security_group(self, openstack_security_group):
+    def _get_openstack_instances_with_security_group(self, openstack_security_group):
         return [instance for instance in (self.nova.servers.list())
                 if openstack_security_group.name in [group['name'] for group in instance.security_groups]]
 
@@ -574,21 +576,28 @@ class EC2Driver(driver.ComputeDriver):
         openstack_security_group = self.nova.security_groups.get(security_group_id)
         ec2_security_group = self._get_or_create_ec2_security_group(openstack_security_group)
 
-        ec2_instance_ids_for_security_group = self._get_ec2_instance_ids_for_security_group(ec2_security_group)
-        ec2_ids_for_openstack_instances_for_security_group = [
+        ec2_ids_for_ec2_instances_with_security_group = self._get_ec2_instance_ids_with_security_group(ec2_security_group)
+        ec2_ids_for_openstack_instances_with_security_group = [
             instance.metadata['ec2_id'] for instance
-            in self._get_openstack_instances_for_security_group(openstack_security_group)
+            in self._get_openstack_instances_with_security_group(openstack_security_group)
         ]
 
         self.security_group_lock.acquire()
 
         try:
-            if self._should_add_security_group_to_instance(ec2_instance_ids_for_security_group, ec2_ids_for_openstack_instances_for_security_group):
-                ec2_instance_id_to_add_security_group = self._get_id_of_ec2_instance_to_update_security_group(ec2_instance_ids_for_security_group, ec2_ids_for_openstack_instances_for_security_group)
-                self._add_security_group_to_instance(ec2_instance_id_to_add_security_group, ec2_security_group)
+            ec2_instance_to_update = self._get_id_of_ec2_instance_to_update_security_group(
+                ec2_ids_for_ec2_instances_with_security_group,
+                ec2_ids_for_openstack_instances_with_security_group
+            )
+
+            should_add_security_group = self._should_add_security_group_to_instance(
+                ec2_ids_for_ec2_instances_with_security_group,
+                ec2_ids_for_openstack_instances_with_security_group)
+
+            if should_add_security_group:
+                self._add_security_group_to_instance(ec2_instance_to_update, ec2_security_group)
             else:
-                ec2_instance_id_to_remove_security_group = self._get_id_of_ec2_instance_to_update_security_group(ec2_instance_ids_for_security_group, ec2_ids_for_openstack_instances_for_security_group)
-                self._remove_security_group_from_instance(ec2_instance_id_to_remove_security_group, ec2_security_group)
+                self._remove_security_group_from_instance(ec2_instance_to_update, ec2_security_group)
         finally:
             self.security_group_lock.release()
 
