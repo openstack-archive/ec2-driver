@@ -17,15 +17,15 @@
 from threading import Lock
 import base64
 import time
-from ec2driver_config import *
+
 from boto import ec2
+import boto.ec2.cloudwatch
 from boto import exception as boto_exc
 from boto.exception import EC2ResponseError
-from credentials import get_nova_creds
-
 from boto.regioninfo import RegionInfo
 from oslo.config import cfg
 from novaclient.v1_1 import client
+
 from ec2driver_config import *
 from nova import block_device
 from nova.compute import power_state
@@ -38,9 +38,8 @@ from nova.openstack.common import log as logging
 from nova.openstack.common import loopingcall
 from nova.virt import driver
 from nova.virt import virtapi
-from nova.compute import flavors
-from novaclient.v1_1 import client
 from credentials import get_nova_creds
+
 
 LOG = logging.getLogger(__name__)
 

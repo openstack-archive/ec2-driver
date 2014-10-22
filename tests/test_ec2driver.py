@@ -173,8 +173,10 @@ class TestEC2Driver(EC2TestBase):
         self.assertEqual(diagnostics['instance.instance_type'], 't2.micro')
         self.assertEqual(diagnostics['instance._state'], 'running(16)')
 
+    @unittest.skipIf(os.environ.get('MOCK_EC2'), 'Not supported by moto')
     def test_attach_volume(self):
-        volume = self.nova_volume.volumes.create(1, snapshot_id=None, display_name='test', display_description=None, volume_type=None, availability_zone=None, imageRef=None)
+        volume = self.nova_volume.volumes.create(1, snapshot_id=None, display_name='test', display_description=None,
+                                                 volume_type=None, availability_zone=None, imageRef=None)
         self.volumes.append(volume)
         instance, instance_ref = self.spawn_ec2_instance()
         self.nova.volumes.create_server_volume(instance_ref, volume.id, "/dev/sdb")
