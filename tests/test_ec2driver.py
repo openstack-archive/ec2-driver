@@ -184,5 +184,20 @@ class TestEC2Driver(EC2TestBase):
         volumes = self.nova.volumes.get_server_volumes(instance.id)
         self.assertIn(volume, volumes)
 
+    @unittest.skipIf(os.environ.get('MOCK_EC2'), 'Not supported by moto')
+    def test_detach_volume(self):
+        volume = self.nova_volume.volumes.create(1, snapshot_id=None, display_name='test', display_description=None,
+                                                 volume_type=None, availability_zone=None, imageRef=None)
+        self.volumes.append(volume)
+        instance, instance_ref = self.spawn_ec2_instance()
+        self.nova.volumes.create_server_volume(instance_ref, volume.id, "/dev/sdb")
+        self.sleep_if_ec2_not_mocked(30)
+        volumes = self.nova.volumes.get_server_volumes(instance.id)
+        if volume in volumes:
+            self.nova.volumes.delete_server_volume(instance_ref, volume.id)
+            self.sleep_if_ec2_not_mocked(30)
+        volumes = self.nova.volumes.get_server_volumes(instance.id)
+        self.assertNotIn(volume, volumes)
+
 if __name__ == '__main__':
     unittest.main()
