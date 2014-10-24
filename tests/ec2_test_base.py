@@ -1,7 +1,9 @@
 import unittest
 import time
+from boto.exception import EC2ResponseError
 
 from boto.regioninfo import RegionInfo
+import datetime
 from novaclient.v1_1 import client
 from boto import ec2
 
@@ -15,8 +17,6 @@ class EC2TestBase(unittest.TestCase):
         if not os.environ.get('MOCK_EC2'):
             time.sleep(seconds)
 
-
-    @classmethod
     def setUp(self):
         print "Establishing connection with AWS"
 
@@ -38,20 +38,17 @@ class EC2TestBase(unittest.TestCase):
         self.servers = []
         self.volumes = []
 
-    @classmethod
     def tearDown(self):
         print "Cleanup: Destroying the instance used for testing"
         for instance in self.servers:
-            instance.delete()
-
-        # wait for all instances to completely shut down and detach volumes if any
-        self.sleep_if_ec2_not_mocked(120)
+            self.destroy_instance_and_release_elastic_ip(instance)
 
         for volume in self.volumes:
             volume.delete()
 
     def spawn_ec2_instance(self):
         print "aws_region: " + aws_region
+        print "time: " + str(datetime.datetime.now().time())
 
         print "Spawning an instance"
         image = self.nova.images.find(name="cirros-0.3.1-x86_64-uec")
@@ -64,3 +61,28 @@ class EC2TestBase(unittest.TestCase):
             instance = self.nova.servers.get(server.id)
         self.servers.append(instance)
         return instance, server.id
+
+    def destroy_instance_and_release_elastic_ip(self, instance):
+        instance.delete()
+        self.servers.remove(instance)
+        self._wait_for_instance_to_be_destroyed(instance.metadata['ec2_id'])
+        self._wait_for_elastic_ip_to_be_released(instance.metadata['public_ip_address'])
+
+    def _wait_for_elastic_ip_to_be_released(self, public_ip):
+        while True:
+            try:
+                print 'Waiting for EC2 elastic ip to be released...'
+                self.sleep_if_ec2_not_mocked(10)
+                eip = self.ec2_conn.get_all_addresses(public_ip)
+            except EC2ResponseError:
+                print 'Elastic ip released.'
+                break
+
+    def _wait_for_instance_to_be_destroyed(self, ec2_id):
+        ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])[0]
+        # while ec2_instance.state not in ("shutting-down", "terminated"):
+        while ec2_instance.state is not "terminated":
+            print 'Waiting for EC2 instance to shut down...'
+            self.sleep_if_ec2_not_mocked(10)
+            ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])[0]
+        print 'Instance has been shut down.'

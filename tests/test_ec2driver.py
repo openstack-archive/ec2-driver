@@ -1,5 +1,6 @@
 import unittest
 import urllib2
+from boto.exception import EC2ResponseError
 
 from novaclient.v1_1 import client
 from ..ec2driver_config import *
@@ -18,7 +19,6 @@ class TestEC2Driver(EC2TestBase):
         self.assertEqual(ec2_instance[0].id, instance.metadata['ec2_id'])
         self.assertEqual(ec2_eip.instance_id, instance.metadata['ec2_id'])
 
-
     def test_destroy(self):
         print "******* Destroy Test ***********"
         instance, instance_ref = self.spawn_ec2_instance()
@@ -30,7 +30,10 @@ class TestEC2Driver(EC2TestBase):
         while ec2_instance.state != "running":
             self.sleep_if_ec2_not_mocked(10)
             ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])[0]
-        instance.delete()
+
+        elastic_ip = self.ec2_conn.get_all_addresses(addresses=instance.metadata['public_ip_address'])[0]
+
+        self.destroy_instance_and_release_elastic_ip(instance)
 
         ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])[0]
         # EC2 statecode: 16->Running, 32->Shutting Down
@@ -40,6 +43,12 @@ class TestEC2Driver(EC2TestBase):
 
         self.assertTrue(ec2_instance.state in ("shutting-down", "terminated"))
 
+        with self.assertRaises(EC2ResponseError):
+            for i in xrange(0,20):
+                self.sleep_if_ec2_not_mocked(5)
+                eip = self.ec2_conn.get_all_addresses(elastic_ip.public_ip)
+                print "Elastic IP for i=", i, ": "
+                print eip
 
     def test_power_off(self):
         print "******* Power Off Test ***********"
