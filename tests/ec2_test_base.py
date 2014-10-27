@@ -81,7 +81,7 @@ class EC2TestBase(unittest.TestCase):
     def _wait_for_instance_to_be_destroyed(self, ec2_id):
         ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])[0]
         # while ec2_instance.state not in ("shutting-down", "terminated"):
-        while ec2_instance.state is not "terminated":
+        while ec2_instance.state != "terminated":
             print 'Waiting for EC2 instance to shut down...'
             self.sleep_if_ec2_not_mocked(10)
             ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])[0]
