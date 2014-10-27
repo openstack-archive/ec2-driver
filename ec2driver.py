@@ -565,8 +565,8 @@ class EC2Driver(driver.ComputeDriver):
     def _get_or_create_ec2_security_group(self, openstack_security_group):
         try:
             return self.ec2_conn.get_all_security_groups(openstack_security_group.name)[0]
-        except EC2ResponseError as e:
-            LOG.warning(e.body)
+        except (EC2ResponseError, IndexError) as e:
+            LOG.warning(e)
             return self.ec2_conn.create_security_group(openstack_security_group.name, openstack_security_group.description)
 
     def refresh_security_group_rules(self, security_group_id):
@@ -576,6 +576,7 @@ class EC2Driver(driver.ComputeDriver):
         ec2_security_group = self._get_or_create_ec2_security_group(openstack_security_group)
 
         ec2_ids_for_ec2_instances_with_security_group = self._get_ec2_instance_ids_with_security_group(ec2_security_group)
+
         ec2_ids_for_openstack_instances_with_security_group = [
             instance.metadata['ec2_id'] for instance
             in self._get_openstack_instances_with_security_group(openstack_security_group)
