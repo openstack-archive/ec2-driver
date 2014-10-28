@@ -1,24 +1,24 @@
 from time import sleep
 import unittest
-import urllib2
-from boto.exception import EC2ResponseError
+from random import randint
 
-from novaclient.v1_1 import client
 from ..ec2driver_config import *
 from ec2_test_base import EC2TestBase
-
-from random import randint
 
 class TestSecurityGroups(EC2TestBase):
 
     def setUp(self):
-        EC2TestBase.setUp()
+        EC2TestBase.setUp(self)
 
         self.instance, instance_id = self.spawn_ec2_instance()
         self.security_group = self.nova.security_groups.create("securityGroupName" + str(randint(1, 10000)),
                                                                "Security group description")
         self.nova.servers.add_security_group(self.instance.id, self.security_group.name)
         self.matching_ec2_security_groups = self._wait_for_ec2_security_group_to_have_instance(self.security_group)
+
+    def tearDown(self):
+        EC2TestBase.tearDown(self)
+        self._destroy_security_group()
 
     def test_should_create_ec2_security_group_if_it_does_not_exist(self):
         self.assertEqual(len(self.matching_ec2_security_groups), 1)
@@ -38,6 +38,12 @@ class TestSecurityGroups(EC2TestBase):
 
     def test_should_add_rule_to_ec2_security_group_when_group_has_an_instance(self):
         pass
+
+    def _destroy_security_group(self):
+        print "Cleanup: Destroying security group"
+        sleep(5)
+        self.security_group.delete()
+        self.ec2_conn.delete_security_group(self.security_group.name)
 
     def _wait_for_ec2_group_to_have_no_instances(self, security_group):
         updated_matching_ec2_security_group = self.ec2_conn.get_all_security_groups(groupnames=security_group.name)[0]
