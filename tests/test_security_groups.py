@@ -25,7 +25,7 @@ class TestSecurityGroups(EC2TestBase):
 
     @unittest.skipIf(os.environ.get('MOCK_EC2'), 'Not supported by moto')
     def test_should_add_security_group_to_ec2_instance(self):
-        self.assertEqual(self.instance.metadata['ec2_id'], self.matching_ec2_security_groups[0].instances()[0].id)
+        self.assertEqual(self.matching_ec2_security_groups[0].instances()[0].id, self.instance.metadata['ec2_id'])
 
     @unittest.skipIf(os.environ.get('MOCK_EC2'), 'Not supported by moto')
     def test_should_remove_security_group_from_ec2_instance(self):
@@ -36,8 +36,23 @@ class TestSecurityGroups(EC2TestBase):
         updated_matching_ec2_security_group = self._wait_for_ec2_group_to_have_no_instances(self.security_group)
         self.assertEqual(updated_matching_ec2_security_group.instances(), [])
 
-    def test_should_add_rule_to_ec2_security_group_when_group_has_an_instance(self):
-        pass
+    def test_should_add_rule_to_ec2_security_group_when_group_is_added_to_an_instance(self):
+
+        security_group_rule = self.nova.security_group_rules.create(
+            parent_group_id=self.security_group.id,
+            ip_protocol='tcp',
+            from_port='1234',
+            to_port='4321',
+            cidr='0.0.0.0/0'
+        )
+
+        updated_security_group = self.nova.security_groups.get(self.security_group.id)
+
+        ec2_security_group = self.ec2_conn.get_all_security_groups(groupnames=self.security_group.name)[0]
+        ec2_rule = ec2_security_group.rules[0]
+
+        self.assertEqual(ec2_rule.ip_protocol, security_group_rule.ip_protocol)
+        #etc
 
     def _destroy_security_group(self):
         print "Cleanup: Destroying security group"

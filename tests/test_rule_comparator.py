@@ -61,7 +61,7 @@ class TestRuleComparator(unittest.TestCase):
         self.openstack_rule['ip_range'] = {}
         self.openstack_rule['group'] = {'name': 'secGroup'}
 
-        self.ec2_connection.get_all_security_groups.return_value = [self.FakeSecurityGroup('secGroup')]
+        self.ec2_connection.get_all_security_groups.return_value = [self.FakeSecurityGroup('secGroup2')]
 
         ec2_rule = FakeEC2RuleBuilder.an_ec2_rule()\
             .with_allowed_security_group_id(5)\

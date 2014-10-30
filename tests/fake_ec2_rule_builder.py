@@ -7,8 +7,8 @@ class FakeEC2RuleBuilder():
 
     def __init__(self):
         self.ip_protocol = 'udp'
-        self.from_port = 1111
-        self.to_port = 3333
+        self.from_port = '1111'
+        self.to_port = '3333'
         self.ip_range = '0.0.0.0/0'
         self.allowed_security_group_id = None
 
