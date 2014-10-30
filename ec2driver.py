@@ -70,17 +70,19 @@ ec2driver_opts = [
 
 CONF = cfg.CONF
 CONF.register_opts(ec2driver_opts, 'ec2driver')
+CONF.import_opt('my_ip', 'nova.netconf')
 
 TIME_BETWEEN_API_CALL_RETRIES = 1.0
 
 EC2_STATE_MAP = {
-        "pending" : power_state.BUILDING,
-        "running" : power_state.RUNNING,
-        "shutting-down" : power_state.NOSTATE,
-        "terminated" : power_state.SHUTDOWN,
-        "stopping" :power_state.NOSTATE,
-        "stopped" : power_state.SHUTDOWN
+    "pending": power_state.BUILDING,
+    "running": power_state.RUNNING,
+    "shutting-down": power_state.NOSTATE,
+    "terminated": power_state.SHUTDOWN,
+    "stopping":power_state.NOSTATE,
+    "stopped": power_state.SHUTDOWN
 }
+
 
 DIAGNOSTIC_KEYS_TO_FILTER = ['group', 'block_device_mapping']
 
@@ -263,11 +265,26 @@ class EC2Driver(driver.ComputeDriver):
                                    'ec2_image_id': ec2_image_id
                     }
                     }
-
         image_api.update(context, image_id, metadata)
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
+
+        """Reboot the specified instance.
+        After this is called successfully, the instance's state
+        goes back to power_state.RUNNING. The virtualization
+        platform should ensure that the reboot action has completed
+        successfully even in cases in which the underlying domain/vm
+        is paused or halted/stopped.
+
+        :param instance: nova.objects.instance.Instance
+        :param network_info:
+           :py:meth:`~nova.network.manager.NetworkManager.get_instance_nw_info`
+        :param reboot_type: Either a HARD or SOFT reboot
+        :param block_device_info: Info pertaining to attached volumes
+        :param bad_volumes_callback: Function to handle any bad volumes
+            encountered
+        """
 
         if reboot_type == 'SOFT':
             self._soft_reboot(
@@ -290,9 +307,15 @@ class EC2Driver(driver.ComputeDriver):
 
     @staticmethod
     def get_host_ip_addr():
-        return '192.168.0.1'
+        """Retrieves the IP address of the dom0
+        """
+        LOG.info("***** Calling get_host_ip_addr *******************")
+        return CONF.my_ip
 
     def set_admin_password(self, instance, new_pass):
+        """Boto doesn't support setting the password at the time of creating an instance.
+        hence not implemented.
+        """
         pass
 
     def inject_file(self, instance, b64_path, b64_contents):
@@ -328,41 +351,76 @@ class EC2Driver(driver.ComputeDriver):
         pass
 
     def power_off(self, instance):
+        """Power off the specified instance.
+        """
         LOG.info("***** Calling POWER OFF *******************")
-        # Powering off the EC2 instance
         ec2_id = instance['metadata']['ec2_id']
         self.ec2_conn.stop_instances(
             instance_ids=[ec2_id], force=False, dry_run=False)
         self._wait_for_state(instance, ec2_id, "stopped", power_state.SHUTDOWN)
 
     def power_on(self, context, instance, network_info, block_device_info):
+        """Power on the specified instance.
+        """
         LOG.info("***** Calling POWER ON *******************")
-        # Powering on the EC2 instance
         ec2_id = instance['metadata']['ec2_id']
         self.ec2_conn.start_instances(instance_ids=[ec2_id], dry_run=False)
         self._wait_for_state(instance, ec2_id, "running", power_state.RUNNING)
 
     def soft_delete(self, instance):
-        pass
+        """Deleting the specified instance
+        """
+        self.destroy(instance)
 
     def restore(self, instance):
         pass
 
     def pause(self, instance):
+        """Boto doesn't support pause and cannot save system state and hence we've implemented the closest functionality
+        which is to poweroff the instance.
+        :param instance: nova.objects.instance.Instance
+        """
         self.power_off(instance)
 
     def unpause(self, instance):
+        """Since Boto doesn't support pause and cannot save system state, we had implemented the closest functionality
+        which is to poweroff the instance. and powering on such an instance in this method.
+        :param instance: nova.objects.instance.Instance
+        """
         self.power_on(
             context=None, instance=instance, network_info=None, block_device_info=None)
 
     def suspend(self, instance):
+        """Boto doesn't support suspend and cannot save system state and hence we've implemented the closest
+        functionality which is to poweroff the instance.
+        :param instance: nova.objects.instance.Instance
+        """
         self.power_off(instance)
 
     def resume(self, context, instance, network_info, block_device_info=None):
+        """Since Boto doesn't support suspend and we cannot save system state, we've implemented the closest
+        functionality which is to power on the instance.
+        :param instance: nova.objects.instance.Instance
+        """
         self.power_on(context, instance, network_info, block_device_info)
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
+        """Destroy the specified instance from the Hypervisor.
+
+        If the instance is not found (for example if networking failed), this
+        function should still succeed.  It's probably a good idea to log a
+        warning in that case.
+
+        :param context: security context
+        :param instance: Instance object as returned by DB layer.
+        :param network_info:
+           :py:meth:`~nova.network.manager.NetworkManager.get_instance_nw_info`
+        :param block_device_info: Information about block devices that should
+                                  be detached from the instance.
+        :param destroy_disks: Indicates if disks should be destroyed
+        :param migrate_data: implementation specific params
+        """
         LOG.info("***** Calling DESTROY *******************")
         if 'ec2_id' not in instance['metadata']:
             LOG.warning(_("Key '%s' not in EC2 instances") % instance['name'], instance=instance)
@@ -396,7 +454,8 @@ class EC2Driver(driver.ComputeDriver):
 
     def attach_volume(self, context, connection_info, instance, mountpoint,
                       disk_bus=None, device_type=None, encryption=None):
-        """Attach the disk to the instance at mountpoint using info."""
+        """Attach the disk to the instance at mountpoint using info.
+        """
         instance_name = instance['name']
         if instance_name not in self._mounts:
             self._mounts[instance_name] = {}
@@ -406,19 +465,21 @@ class EC2Driver(driver.ComputeDriver):
         # ec2 only attaches volumes at /dev/sdf through /dev/sdp
         self.ec2_conn.attach_volume(volume_map[volume_id], instance['metadata']['ec2_id'], "/dev/sdn", dry_run=False)
 
-    def detach_volume(self, connection_info, instance, mountpoint,
-                      encryption=None):
-        """Detach the disk attached to the instance."""
+    def detach_volume(self, connection_info, instance, mountpoint, encryption=None):
+        """Detach the disk attached to the instance.
+        """
         try:
             del self._mounts[instance['name']][mountpoint]
         except KeyError:
             pass
         volume_id = connection_info['data']['volume_id']
-        self.ec2_conn.detach_volume(volume_map[volume_id], instance_id=instance['metadata']['ec2_id'], device="/dev/sdn", force=False, dry_run=False)
+        self.ec2_conn.detach_volume(volume_map[volume_id], instance_id=instance['metadata']['ec2_id'],
+                                    device="/dev/sdn", force=False, dry_run=False)
 
     def swap_volume(self, old_connection_info, new_connection_info,
                     instance, mountpoint):
-        """Replace the disk attached to the instance."""
+        """Replace the disk attached to the instance.
+        """
         instance_name = instance['name']
         if instance_name not in self._mounts:
             self._mounts[instance_name] = {}
@@ -428,9 +489,11 @@ class EC2Driver(driver.ComputeDriver):
         new_volume_id = new_connection_info['data']['volume_id']
 
         self.detach_volume(old_connection_info, instance, mountpoint)
-        # wait for the old volume to detach successfully to make sure /dev/sdn is available for the new volume to be attached
+        # wait for the old volume to detach successfully to make sure
+        # /dev/sdn is available for the new volume to be attached
         time.sleep(60)
-        self.ec2_conn.attach_volume(volume_map[new_volume_id], instance['metadata']['ec2_id'], "/dev/sdn", dry_run=False)
+        self.ec2_conn.attach_volume(volume_map[new_volume_id],
+                                    instance['metadata']['ec2_id'], "/dev/sdn", dry_run=False)
         return True
 
     def attach_interface(self, instance, image_meta, vif):
@@ -445,6 +508,15 @@ class EC2Driver(driver.ComputeDriver):
             raise exception.InterfaceDetachFailed('not attached')
 
     def get_info(self, instance):
+        """Get the current status of an instance, by name (not ID!)
+        :param instance: nova.objects.instance.Instance object
+        Returns a dict containing:
+        :state:           the running state, one of the power_state codes
+        :max_mem:         (int) the maximum memory in KBytes allowed
+        :mem:             (int) the memory in KBytes used by the domain
+        :num_cpu:         (int) the number of virtual CPUs for the domain
+        :cpu_time:        (int) the CPU time used in nanoseconds
+        """
         LOG.info("*************** GET INFO ********************")
         if 'metadata' not in instance or 'ec2_id' not in instance['metadata']:
             raise exception.InstanceNotFound(instance_id=instance['name'])
@@ -455,9 +527,12 @@ class EC2Driver(driver.ComputeDriver):
             LOG.warning(_("EC2 instance with ID %s not found") % ec2_id, instance=instance)
             raise exception.InstanceNotFound(instance_id=instance['name'])
         ec2_instance = ec2_instances[0]
+        LOG.info(ec2_instance)
+        LOG.info('state',EC2_STATE_MAP.get(ec2_instance.state), 'max_mem', ec2_instance.ramdisk, 'mem',
+                 ec2_instance.get_attribute('ramdisk', dry_run=False), ec2_instance.instance_type)
         return {'state': EC2_STATE_MAP.get(ec2_instance.state),
-                'max_mem': 0,
-                'mem': 0,
+                'max_mem': ec2_instance.ramdisk,
+                'mem': ec2_instance.get_attribute('ramdisk', dry_run=False),
                 'num_cpu': 2,
                 'cpu_time': 0}
 
