@@ -270,11 +270,6 @@ class EC2Driver(driver.ComputeDriver):
                         'ramdisk_id': instance['ramdisk_id'],
                         'ec2_image_id': ec2_image_id
                     }
-<<<<<<< HEAD
-=======
-        }
-
->>>>>>> Ed & Cameron | Add and remove rules to/from security groups associated with instances
         image_api.update(context, image_id, metadata)
 
     def reboot(self, context, instance, network_info, reboot_type,
