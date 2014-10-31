@@ -268,7 +268,7 @@ class EC2Driver(driver.ComputeDriver):
                         'image_state': 'available',
                         'owner_id': instance['project_id'],
                         'ramdisk_id': instance['ramdisk_id'],
-                        'ec2_image_id': ec2_image_id
+                        'ec2_image_id': ec2_image_id }
                     }
         image_api.update(context, image_id, metadata)
 
