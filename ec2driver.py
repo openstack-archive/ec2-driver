@@ -535,8 +535,8 @@ class EC2Driver(driver.ComputeDriver):
             raise exception.InstanceNotFound(instance_id=instance['name'])
         ec2_instance = ec2_instances[0]
         LOG.info(ec2_instance)
-        LOG.info('state',EC2_STATE_MAP.get(ec2_instance.state), 'max_mem', ec2_instance.ramdisk, 'mem',
-                 ec2_instance.get_attribute('ramdisk', dry_run=False), ec2_instance.instance_type)
+        LOG.info("state %s max_mem %s mem %s flavor %s" %
+                 (EC2_STATE_MAP.get(ec2_instance.state), ec2_instance.ramdisk, ec2_instance.get_attribute('ramdisk', dry_run=False), ec2_instance.instance_type))
         return {'state': EC2_STATE_MAP.get(ec2_instance.state),
                 'max_mem': ec2_instance.ramdisk,
                 'mem': ec2_instance.get_attribute('ramdisk', dry_run=False),
@@ -550,6 +550,8 @@ class EC2Driver(driver.ComputeDriver):
         return True
 
     def get_diagnostics(self, instance_name):
+        """Return data about VM diagnostics.
+        """
         LOG.info("******* GET DIAGNOSTICS *********************************************")
         instance = self.nova.servers.get(instance_name)
 
@@ -573,7 +575,7 @@ class EC2Driver(driver.ComputeDriver):
             end = datetime.datetime.utcnow()
             start = end - datetime.timedelta(hours=1)
             details = metric.query(start, end, 'Average', None, 3600)
-            if (len(details) > 0):
+            if len(details) > 0:
                 diagnostics['metrics.' + str(metric)] = details[0]
 
         return diagnostics
@@ -657,6 +659,13 @@ class EC2Driver(driver.ComputeDriver):
                                                        openstack_security_group.description)
 
     def refresh_security_group_rules(self, security_group_id):
+        """This method is called after a change to security groups.
+
+        All security groups and their associated rules live in the datastore,
+        and calling this method should apply the updated rules to instances
+        running the specified security group.
+        An error should be raised if the operation cannot complete.
+        """
         LOG.info("************** REFRESH SECURITY GROUP RULES ******************")
 
         openstack_security_group = self.nova.   security_groups.get(security_group_id)
@@ -757,17 +766,23 @@ class EC2Driver(driver.ComputeDriver):
         pass
 
     def get_available_resource(self, nodename):
-        """Updates compute manager resource info on ComputeNode table.
-
-           Since we don't have a real hypervisor, pretend we have lots of
-           disk and ram.
+        """Retrieve resource information.
+        Updates compute manager resource info on ComputeNode table.
+        This method is called when nova-compute launches and as part of a periodic task that records results in the DB.
+        Since we don't have a real hypervisor, pretend we have lots of disk and ram.
+        :param nodename:
+            node which the caller want to get resources from
+            a driver that manages only one node can safely ignore this
+        :returns: Dictionary describing resources
         """
+        LOG.info("************** GET_AVAILABLE_RESOURCE ******************")
+
         if nodename not in _EC2_NODES:
             return {}
 
         dic = {'vcpus': VCPUS,
                'memory_mb': MEMORY_IN_MBS,
-               'local_gb': 1028,
+               'local_gb': DISK_IN_GB,
                'vcpus_used': 0,
                'memory_mb_used': 0,
                'local_gb_used': 0,
@@ -808,6 +823,11 @@ class EC2Driver(driver.ComputeDriver):
     def finish_migration(self, context, migration, instance, disk_info,
                          network_info, image_meta, resize_instance,
                          block_device_info=None, power_on=True):
+        """Completes a resize
+        :param migration: the migrate/resize information
+        :param instance: nova.objects.instance.Instance being migrated/resized
+        :param power_on: is True  the instance should be powered on
+        """
         LOG.info("***** Calling FINISH MIGRATION *******************")
         ec2_id = instance['metadata']['ec2_id']
         ec_instance_info = self.ec2_conn.get_only_instances(
@@ -822,6 +842,9 @@ class EC2Driver(driver.ComputeDriver):
         ec2_instance.modify_attribute('instanceType', new_instance_type)
 
     def confirm_migration(self, migration, instance, network_info):
+        """Confirms a resize, destroying the source VM.
+        :param instance: nova.objects.instance.Instance
+        """
         LOG.info("***** Calling CONFIRM MIGRATION *******************")
         ec2_id = instance['metadata']['ec2_id']
         ec_instance_info = self.ec2_conn.get_only_instances(
@@ -897,8 +920,13 @@ class EC2Driver(driver.ComputeDriver):
         return []
 
     def _wait_for_state(self, instance, ec2_id, desired_state, desired_power_state):
+        """Wait for the state of the corrosponding ec2 instance to be in completely available state.
+        :params:ec2_id: the instance's corrosponding ec2 id.
+        :params:desired_state: the desired state of the instance to be in.
+        """
         def _wait_for_power_state():
-            """Called at an interval until the VM is running again."""
+            """Called at an interval until the VM is running again.
+            """
             ec2_instance = self.ec2_conn.get_only_instances(instance_ids=[ec2_id])
 
             state = ec2_instance[0].state
@@ -907,21 +935,28 @@ class EC2Driver(driver.ComputeDriver):
                 raise loopingcall.LoopingCallDone()
 
         def _wait_for_status_check():
+            """Power state of a machine might be ON, but status check is the one which gives the real
+            """
             ec2_instance = self.ec2_conn.get_all_instance_status(instance_ids=[ec2_id])[0]
             if ec2_instance.system_status.status == 'ok':
                 LOG.info("Instance status check is %s / %s" %
                          (ec2_instance.system_status.status, ec2_instance.instance_status.status))
                 raise loopingcall.LoopingCallDone()
 
+        #waiting for the power state to change
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_power_state)
         timer.start(interval=1).wait()
 
+        #waiting for the status of the machine to be in running
         if desired_state == 'running':
             timer = loopingcall.FixedIntervalLoopingCall(_wait_for_status_check)
             timer.start(interval=0.5).wait()
 
     def _wait_for_image_state(self, ami_id, desired_state):
-        # Timer to wait for the iamge to reach a state
+        """Timer to wait for the image/snapshot to reach a desired state
+        :params:ami_id: correspoding image id in Amazon
+        :params:desired_state: the desired new state of the image to be in.
+        """
         def _wait_for_state():
             """Called at an interval until the AMI image is available."""
             try:
