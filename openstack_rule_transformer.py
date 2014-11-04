@@ -2,7 +2,7 @@ from copy import deepcopy
 from rule import Rule
 
 
-class OpenStackRuleTransformer:
+class OpenstackRuleTransformer:
 
     def to_rule(self, openstack_rule):
         rule_args = deepcopy(openstack_rule)

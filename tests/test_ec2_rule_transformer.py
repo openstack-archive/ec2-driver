@@ -5,20 +5,25 @@ from fake_ec2_rule_builder import FakeEC2RuleBuilder
 import unittest
 
 
-
 class TestEC2RuleTransformer(unittest.TestCase):
 
     def setUp(self):
         self.ec2_connection = Mock()
         self.ec2_rule_transformer = EC2RuleTransformer(self.ec2_connection)
 
-    def test_should_copy_ip_protocol_and_port_attributes(self):
+    def test_should_copy_ip_protocol(self):
         ec2_rule = FakeEC2RuleBuilder.an_ec2_rule().build()
-
         rule = self.ec2_rule_transformer.to_rule(ec2_rule)
-
         self.assertEqual(rule.ip_protocol, ec2_rule.ip_protocol)
+
+    def test_should_copy_from_port(self):
+        ec2_rule = FakeEC2RuleBuilder.an_ec2_rule().build()
+        rule = self.ec2_rule_transformer.to_rule(ec2_rule)
         self.assertEqual(rule.from_port, ec2_rule.from_port)
+
+    def test_should_copy_to_port(self):
+        ec2_rule = FakeEC2RuleBuilder.an_ec2_rule().build()
+        rule = self.ec2_rule_transformer.to_rule(ec2_rule)
         self.assertEqual(rule.to_port, ec2_rule.to_port)
 
     def test_should_copy_ip_range_attribute_from_grant(self):
