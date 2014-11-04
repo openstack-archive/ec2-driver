@@ -39,9 +39,9 @@ Using the native OpenStack Dashboard or APIs you would be able to manage the EC2
 
 5. Restart nova
   - `~/devstack/rejoin-stack.sh`
-  - go to the nova-cpu screen (`ctrl+a`, `6`)
+  - go to the nova-cpu screen (`ctrl+a`, `7`)
   - restart the process with `ctrl+c`, press up, and then enter
-  - go to nova-api (screen 5), and repeat
+  - go to nova-api (screen 6), and repeat
   
 The driver should now be loaded. The contents of the repository is mapped to `/opt/stack/nova/nova/virt/ec2/`, and you can edit it directly from your host computer with an IDE of your choice.
 
