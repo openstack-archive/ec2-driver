@@ -21,14 +21,22 @@ Using the native OpenStack Dashboard or APIs you would be able to manage the EC2
 - VirtualBox
 - Vagrant
 
-###Instructions
+###Instructions for Developer environment
 1. Clone this repository: `git clone https://github.com/ThoughtWorksInc/OpenStack-EC2-Driver.git`
 2. Run`vagrant up` from within the repository to create an Ubuntu virtualbox that will install devstack. This will take a couple minutes.
 3. `vagrant ssh` to ssh into the new machine
 4. Use `vim /etc/nova/nova.conf` to edit the nova configuration so that 
-    - the compute_driver is set to ec2.EC2Driver
-    - under the [conductor] section, add the following line
-        use_local = True
+
+        [DEFAULT]
+        compute_driver=ec2.EC2Driver
+
+        [conductor]
+        use_local=True
+
+        [ec2driver]
+        ec2_secret_access_key = <your_aws_secret_access_key>
+        ec2_access_key_id = <your_aws_access_key_id>
+
 5. Restart nova
   - `~/devstack/rejoin-stack.sh`
   - go to the nova-cpu screen (`ctrl+a`, `6`)

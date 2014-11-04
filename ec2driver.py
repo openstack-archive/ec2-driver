@@ -67,6 +67,10 @@ ec2driver_opts = [
     cfg.BoolOpt('use_linked_clone',
                 default=True,
                 help='Whether to use linked clone'),
+    cfg.StrOpt('ec2_secret_access_key',
+               help='The secret access key of the Amazon Web Services account'),
+    cfg.StrOpt('ec2_access_key_id',
+               help='The access key ID of the Amazon Web Services account'),
 ]
 
 CONF = cfg.CONF
@@ -140,17 +144,16 @@ class EC2Driver(driver.ComputeDriver):
 
         self.creds = get_nova_creds()
         self.nova = client.Client(**self.creds)
-
         region = RegionInfo(name=aws_region, endpoint=aws_endpoint)
-        self.ec2_conn = ec2.EC2Connection(aws_access_key_id=aws_access_key_id,
-                                          aws_secret_access_key=aws_secret_access_key,
+        self.ec2_conn = ec2.EC2Connection(aws_access_key_id=CONF.ec2driver.ec2_access_key_id,
+                                          aws_secret_access_key=CONF.ec2driver.ec2_secret_access_key,
                                           host=host,
                                           port=port,
                                           region=region,
                                           is_secure=secure)
 
         self.cloudwatch_conn = ec2.cloudwatch.connect_to_region(
-            aws_region, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+            aws_region, aws_access_key_id=CONF.ec2driver.ec2_access_key_id, aws_secret_access_key=CONF.ec2driver.ec2_secret_access_key)
 
         self.security_group_lock = Lock()
         self.rule_comparator = rule_comparator.RuleComparator(self.ec2_conn)
