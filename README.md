@@ -36,7 +36,7 @@ as a hypervisor while continuing to be able to manage the existing private cloud
 
 You are now all set cloud burst!
 
-## What is supported!
+## What's supported!
 Launch
 Reboot
 Terminate
