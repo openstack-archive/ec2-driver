@@ -9,7 +9,7 @@ class EC2RuleTransformer:
 
     def to_rule(self, ec2_rule):
         rule_args = deepcopy(vars(ec2_rule))
-        del rule_args['grants']
+        self._delete_unused_rule_args(rule_args)
 
         if ec2_rule.grants[0].cidr_ip:
             rule_args['ip_range'] = ec2_rule.grants[0].cidr_ip
@@ -18,3 +18,7 @@ class EC2RuleTransformer:
             rule_args['group_name'] = self.ec2_connection.get_all_security_groups(group_ids=group_id)[0].name
 
         return Rule(**rule_args)
+
+    def _delete_unused_rule_args(self, rule_args):
+        del rule_args['grants']
+        del rule_args['parent']
