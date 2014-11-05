@@ -35,7 +35,25 @@ as a hypervisor while continuing to be able to manage the existing private cloud
 5. Restart the nova-compute service. You are now all set cloud burst!
 
 ### What's supported!
-Launch, Reboot, Terminate, Resize, Pause/Unpause*, Suspend/Resume*, Attach/Detach Volume, Snapshot
+- Launch
+- Reboot
+- Terminate
+- Resize
+- Config drive / User Data
+- Pause/Unpause*
+- Suspend/Resume* 
+- Attach/Detach/Swap Volume 
+- Snapshot
+- Security Groups
+- Nova Diagnostics
+
+###Some more to be added!
+
+- Spice, VNC and RDP Console
+- Serial Console Output
+- iSCSI 
+- Service Control
+
 
 #For Contributors
 
