@@ -1,10 +1,11 @@
 import unittest
 import urllib2
-from boto.exception import EC2ResponseError
 
+from boto.exception import EC2ResponseError
 from novaclient.v1_1 import client
-from ..ec2driver_config import *
-from ec2_test_base import EC2TestBase
+
+from ...ec2driver_config import *
+from tests.integration.ec2_test_base import EC2TestBase
 
 
 class TestEC2Driver(EC2TestBase):

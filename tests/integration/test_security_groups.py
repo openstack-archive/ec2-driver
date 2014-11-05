@@ -2,8 +2,9 @@ from time import sleep
 import unittest
 from random import randint
 
-from ..ec2driver_config import *
-from ec2_test_base import EC2TestBase
+from ...ec2driver_config import *
+from tests.integration.ec2_test_base import EC2TestBase
+
 
 class TestSecurityGroups(EC2TestBase):
 
