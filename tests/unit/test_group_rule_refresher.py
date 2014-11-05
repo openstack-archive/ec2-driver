@@ -13,7 +13,7 @@ OTHER_GROUP_NAME = "otherSecGroup"
 
 class TestGroupRuleRefresher(unittest.TestCase):
     def setUp(self):
-        self.new_rule = Rule('hjkl', 7, 8, '9.9.9.9/99')
+        self.rule = Rule('hjkl', 7, 8, '9.9.9.9/99')
         self.openstack_instance = Mock()
 
         self.ec2_connection = Mock(EC2Connection)
@@ -27,15 +27,29 @@ class TestGroupRuleRefresher(unittest.TestCase):
         )
 
     def test_should_add_rule_to_ec2_security_group_when_rule_associated_with_group_on_openstack(self):
-        self.openstack_rule_service.get_rules_for_group.return_value = set([self.new_rule])
+        self.openstack_rule_service.get_rules_for_group.return_value = set([self.rule])
         self.ec2_rule_service.get_rules_for_group.return_value = set()
 
         self.group_rule_refresher.refresh(GROUP_NAME)
 
         self.ec2_connection.authorize_security_group.assert_called_once_with(
             group_name=GROUP_NAME,
-            ip_protocol=self.new_rule.ip_protocol,
-            from_port=self.new_rule.from_port,
-            to_port=self.new_rule.to_port,
-            cidr_ip=self.new_rule.ip_range
+            ip_protocol=self.rule.ip_protocol,
+            from_port=self.rule.from_port,
+            to_port=self.rule.to_port,
+            cidr_ip=self.rule.ip_range
+        )
+
+    def test_should_remove_rule_from_ec2_security_group_when_rule_not_associated_with_group_on_openstack(self):
+        self.openstack_rule_service.get_rules_for_group.return_value = set()
+        self.ec2_rule_service.get_rules_for_group.return_value = set([self.rule])
+
+        self.group_rule_refresher.refresh(GROUP_NAME)
+
+        self.ec2_connection.revoke_security_group.assert_called_once_with(
+            group_name=GROUP_NAME,
+            ip_protocol=self.rule.ip_protocol,
+            from_port=self.rule.from_port,
+            to_port=self.rule.to_port,
+            cidr_ip=self.rule.ip_range
         )
