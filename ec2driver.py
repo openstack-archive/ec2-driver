@@ -173,7 +173,7 @@ class EC2Driver(driver.ComputeDriver):
                 ),
                 ec2_rule_service=EC2RuleService(
                     ec2_connection=self.ec2_conn,
-                    ec2_rule_transformer=EC2RuleTransformer()
+                    ec2_rule_transformer=EC2RuleTransformer(self.ec2_conn)
                 )
             )
         )
