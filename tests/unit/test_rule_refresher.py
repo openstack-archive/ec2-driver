@@ -4,7 +4,6 @@ from boto.ec2 import EC2Connection
 from mock import Mock
 
 from nova.virt.ec2.rule_refresher import RuleRefresher
-
 from nova.virt.ec2.rule import Rule
 from nova.virt.ec2.openstack_rule_service import OpenstackRuleService
 from nova.virt.ec2.ec2_rule_service import EC2RuleService

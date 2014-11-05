@@ -1,6 +1,8 @@
 import unittest
+
 from mock import Mock
 from novaclient.v1_1.security_groups import SecurityGroupManager
+
 from nova.virt.ec2.openstack_group_service import OpenstackGroupService
 
 

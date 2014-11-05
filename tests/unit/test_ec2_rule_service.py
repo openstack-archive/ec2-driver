@@ -6,7 +6,7 @@ from mock import Mock, call
 
 from nova.virt.ec2.ec2_rule_service import EC2RuleService
 from nova.virt.ec2.ec2_rule_transformer import EC2RuleTransformer
-from nova.virt.ec2.tests.fake_ec2_rule_builder import FakeEC2RuleBuilder
+
 
 class TestEC2RuleService(unittest.TestCase):
 

@@ -1,8 +1,9 @@
-from nova.virt.ec2.ec2_rule_transformer import EC2RuleTransformer
-from mock import Mock
-from fake_ec2_rule_builder import FakeEC2RuleBuilder
-
 import unittest
+
+from mock import Mock
+
+from nova.virt.ec2.ec2_rule_transformer import EC2RuleTransformer
+from fake_ec2_rule_builder import FakeEC2RuleBuilder
 
 
 class TestEC2RuleTransformer(unittest.TestCase):
