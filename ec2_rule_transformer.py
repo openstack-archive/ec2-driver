@@ -8,8 +8,10 @@ class EC2RuleTransformer:
         self.ec2_connection = ec2_connection
 
     def to_rule(self, ec2_rule):
-        rule_args = deepcopy(vars(ec2_rule))
-        self._delete_unused_rule_args(rule_args)
+        rule_args = {}
+        rule_args['ip_protocol'] = ec2_rule.ip_protocol
+        rule_args['from_port'] = ec2_rule.from_port
+        rule_args['to_port'] = ec2_rule.to_port
 
         if ec2_rule.grants[0].cidr_ip:
             rule_args['ip_range'] = ec2_rule.grants[0].cidr_ip
@@ -18,10 +20,3 @@ class EC2RuleTransformer:
             rule_args['group_name'] = self.ec2_connection.get_all_security_groups(group_ids=group_id)[0].name
 
         return Rule(**rule_args)
-
-    def _delete_unused_rule_args(self, rule_args):
-        del rule_args['grants']
-        del rule_args['parent']
-        del rule_args['item']
-        del rule_args['ipRanges']
-        del rule_args['groups']
