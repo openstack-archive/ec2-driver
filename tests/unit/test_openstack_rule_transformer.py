@@ -3,7 +3,7 @@ import unittest
 from nova.virt.ec2.openstack_rule_transformer import OpenstackRuleTransformer
 
 
-class TestEC2RuleTransformer(unittest.TestCase):
+class TestOpenstackRuleTransformer(unittest.TestCase):
 
     def setUp(self):
         self.openstack_rule_transformer = OpenstackRuleTransformer()

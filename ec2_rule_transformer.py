@@ -22,3 +22,6 @@ class EC2RuleTransformer:
     def _delete_unused_rule_args(self, rule_args):
         del rule_args['grants']
         del rule_args['parent']
+        del rule_args['item']
+        del rule_args['ipRanges']
+        del rule_args['groups']

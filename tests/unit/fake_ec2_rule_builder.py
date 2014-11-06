@@ -2,7 +2,7 @@ from collections import namedtuple
 
 class FakeEC2RuleBuilder():
 
-    EC2Rule = namedtuple('EC2Rule', 'ip_protocol from_port to_port grants parent')
+    EC2Rule = namedtuple('EC2Rule', 'ip_protocol from_port to_port grants parent item ipRanges groups')
     GroupOrCIDR = namedtuple('GroupOrCIDR', 'cidr_ip group_id')
 
     def __init__(self):
@@ -12,6 +12,9 @@ class FakeEC2RuleBuilder():
         self.ip_range = '0.0.0.0/0'
         self.allowed_security_group_id = None
         self.parent = None
+        self.item = '\n'
+        self.ip_ranges = '\n'
+        self.groups = ''
 
     @staticmethod
     def an_ec2_rule():
@@ -41,4 +44,5 @@ class FakeEC2RuleBuilder():
 
     def build(self):
         grants = [self.GroupOrCIDR(self.ip_range, self.allowed_security_group_id)]
-        return self.EC2Rule(self.ip_protocol, self.from_port, self.to_port, grants, self.parent)
+        return self.EC2Rule(self.ip_protocol, self.from_port, self.to_port, grants,
+                            self.parent, self.item, self.ip_ranges, self.groups)
