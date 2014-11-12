@@ -7,8 +7,8 @@ import datetime
 from novaclient.v1_1 import client
 from boto import ec2
 
-from ..credentials import get_nova_creds
-from ..ec2driver_config import *
+from ...credentials import get_nova_creds
+from ...ec2driver_config import *
 
 
 class EC2TestBase(unittest.TestCase):

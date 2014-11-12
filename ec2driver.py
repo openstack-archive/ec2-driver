@@ -25,6 +25,8 @@ from boto.exception import EC2ResponseError
 from boto.regioninfo import RegionInfo
 from oslo.config import cfg
 from novaclient.v1_1 import client
+from ec2_rule_service import EC2RuleService
+from ec2_rule_transformer import EC2RuleTransformer
 
 from ec2driver_config import *
 from nova import block_device
@@ -39,8 +41,13 @@ from nova.openstack.common import loopingcall
 from nova.virt import driver
 from nova.virt import virtapi
 from credentials import get_nova_creds
+from instance_rule_refresher import InstanceRuleRefresher
+from openstack_group_service import OpenstackGroupService
+from openstack_rule_service import OpenstackRuleService
+from openstack_rule_transformer import OpenstackRuleTransformer
 
 import rule_comparator
+from group_rule_refresher import GroupRuleRefresher
 
 LOG = logging.getLogger(__name__)
 
@@ -156,7 +163,20 @@ class EC2Driver(driver.ComputeDriver):
             aws_region, aws_access_key_id=CONF.ec2driver.ec2_access_key_id, aws_secret_access_key=CONF.ec2driver.ec2_secret_access_key)
 
         self.security_group_lock = Lock()
-        self.rule_comparator = rule_comparator.RuleComparator(self.ec2_conn)
+
+        self.instance_rule_refresher = InstanceRuleRefresher(
+            GroupRuleRefresher(
+                ec2_connection=self.ec2_conn,
+                openstack_rule_service=OpenstackRuleService(
+                    group_service=OpenstackGroupService(self.nova.security_groups),
+                    openstack_rule_transformer=OpenstackRuleTransformer()
+                ),
+                ec2_rule_service=EC2RuleService(
+                    ec2_connection=self.ec2_conn,
+                    ec2_rule_transformer=EC2RuleTransformer(self.ec2_conn)
+                )
+            )
+        )
 
         if not '_EC2_NODES' in globals():
             set_nodes([CONF.host])
@@ -720,48 +740,7 @@ class EC2Driver(driver.ComputeDriver):
 
         # TODO: lock for case when group is associated with multiple instances [Cameron & Ed]
 
-        openstack_instance = self.nova.servers.get(instance['id'])
-
-        for group_dict in openstack_instance.security_groups:
-
-            openstack_group =\
-                [group for group in self.nova.security_groups.list() if group.name == group_dict['name']][0]
-
-            ec2_group = self.ec2_conn.get_all_security_groups(groupnames=group_dict['name'])[0]
-
-            for openstack_rule in openstack_group.rules:
-                equivalent_rule_found_in_ec2 = False
-                for ec2_rule in ec2_group.rules:
-                    if self.rule_comparator.rules_are_equal(openstack_rule, ec2_rule):
-                        equivalent_rule_found_in_ec2 = True
-                        break
-
-                if not equivalent_rule_found_in_ec2:
-                    self.ec2_conn.authorize_security_group(
-                        group_name=ec2_group.name,
-                        ip_protocol=openstack_rule['ip_protocol'],
-                        from_port=openstack_rule['from_port'],
-                        to_port=openstack_rule['to_port'],
-                        src_security_group_name=self._get_allowed_group_name_from_openstack_rule_if_present(openstack_rule),
-                        cidr_ip=self._get_allowed_ip_range_from_openstack_rule_if_present(openstack_rule)
-                    )
-
-            for ec2_rule in ec2_group.rules:
-                equivalent_rule_found_in_openstack = False
-                for openstack_rule in openstack_group.rules:
-                    if self.rule_comparator.rules_are_equal(openstack_rule, ec2_rule):
-                        equivalent_rule_found_in_openstack = True
-                        break
-
-                if not equivalent_rule_found_in_openstack:
-                    self.ec2_conn.revoke_security_group(
-                        group_name=ec2_group.name,
-                        ip_protocol=ec2_rule.ip_protocol,
-                        from_port=ec2_rule.from_port,
-                        to_port=ec2_rule.to_port,
-                        cidr_ip=ec2_rule.grants[0].cidr_ip,
-                        src_security_group_group_id=ec2_rule.grants[0].group_id
-                    )
+        self.instance_rule_refresher.refresh(self.nova.servers.get(instance['id']))
 
         return
 
