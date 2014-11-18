@@ -16,11 +16,11 @@ as a hypervisor while continuing to be able to manage the existing private cloud
 - Python 2.7 and above
 - Amazon Web Service (AWS) SDK for Python --  Boto 2.34
 
-## Quick Setup Steps
+## Quick Setup
 
 1. `$ cd <openstack_root_dir>/nova/nova/virt/`
 2. `$ git clone https://github.com/ThoughtWorksInc/OpenStack-EC2-Driver.git ec2`
-3. `$ vim /etc/nova/nova.conf # make sure it contains the following options in the respective sections`
+3. `$ vim /etc/nova/nova.conf # add the following options in the respective sections`
 
         [DEFAULT]
         compute_driver=ec2.EC2Driver
@@ -32,7 +32,23 @@ as a hypervisor while continuing to be able to manage the existing private cloud
         ec2_secret_access_key = <your_aws_secret_access_key>
         ec2_access_key_id = <your_aws_access_key_id>
 4. `ec2driver_standard_config.py` can be edited to configure the default AMI, AWS region and endpoints. 
-5. Restart the nova-compute service. You are now all set cloud burst!
+5. Restart the nova-compute service. You are now all set cloud burst! 
+
+## Multi-node hybrid cloud
+This will enable a hybrid cloud infrastucture using this driver on one of the multiple compute-hosts. Follow the Quick setup to install the EC2 Driver on a (psuedo) compute-host in it's own availability zone. 
+
+1. `$ cd <openstack_root_dir>/nova/nova/virt/`
+2. `$ cp ./cloud_burst_filter.py ../scheduler/filters/`
+3. `$ vim /etc/nova/nova.conf # add the following options in the respective sections`
+
+        [DEFAULT]
+        cloud_burst = # Switch to enable could bursting
+        cloud_burst_availability_zone = # The availability zone of only compute hosts with the public cloud driver
+
+        scheduler_driver = nova.scheduler.filter_scheduler.FilterScheduler
+        scheduler_available_filters = nova.scheduler.filters.all_filters
+        scheduler_default_filters = RetryFilter, AvailabilityZoneFilter, RamFilter, ComputeFilter, ComputeCapabilitiesFilter, ImagePropertiesFilter, ServerGroupAntiAffinityFilter, ServerGroupAffinityFilter, CloudBurstFilter
+4. Restart nova-api, nova-compute and nova-scheduler services for the filter to take effect.
 
 ### What's supported!
 - Launch
