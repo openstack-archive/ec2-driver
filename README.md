@@ -95,4 +95,8 @@ The driver should now be loaded. The contents of the repository is mapped to `/o
 5. Use `nosetests -s test_ec2driver.py`
 6. To stop Moto, run `source /opt/stack/nova/nova/virt/ec2/tests/shutdown_moto.sh`.
 
+###Using tempest/tempest.conf to run tempest tests
+1. Clone the tempest repo from https://github.com/openstack/tempest
+2. `ln -s tempest/tempest.conf <path to tempest repo>/etc/tempest.conf`
+
 \* In Amazon’s EC2 there is no concept of suspend and resume on instances. Therefore, we simply stop EC2 instances when suspended and start the instances when resumed, we do the same on pause and un-pause.
