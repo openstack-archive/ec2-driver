@@ -97,6 +97,7 @@ The driver should now be loaded. The contents of the repository is mapped to `/o
 
 ###Using tempest/tempest.conf to run tempest tests
 1. Clone the tempest repo from https://github.com/openstack/tempest
-2. `ln -s tempest/tempest.conf <path to tempest repo>/etc/tempest.conf`
+2. `ln -s ~/nova/nova/virt/ec2/tempest/tempest.conf <path to tempest repo>/etc/tempest.conf`
+3. `ln -s ~/nova/nova/virt/ec2/tempest/accounts.yaml <path to tempest repo>/etc/accounts.yaml`
 
 \* In Amazon’s EC2 there is no concept of suspend and resume on instances. Therefore, we simply stop EC2 instances when suspended and start the instances when resumed, we do the same on pause and un-pause.
