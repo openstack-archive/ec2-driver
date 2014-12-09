@@ -41,13 +41,13 @@ This will enable a hybrid cloud infrastucture using this driver on one of the mu
 2. `$ cp ./cloud_burst_filter.py ../scheduler/filters/`
 3. `$ vim /etc/nova/nova.conf # add the following options in the respective sections`
 
-        [DEFAULT]
-        cloud_burst = # Switch to enable could bursting
-        cloud_burst_availability_zone = # The availability zone of only compute hosts with the public cloud driver
+      [DEFAULT]
+      cloud_burst = # Switch to enable could bursting
+      cloud_burst_availability_zone = # The availability zone of only compute hosts with the public cloud driver
 
-        scheduler_driver = nova.scheduler.filter_scheduler.FilterScheduler
-        scheduler_available_filters = nova.scheduler.filters.all_filters
-        scheduler_default_filters = RetryFilter, AvailabilityZoneFilter, RamFilter, ComputeFilter, ComputeCapabilitiesFilter, ImagePropertiesFilter, ServerGroupAntiAffinityFilter, ServerGroupAffinityFilter, CloudBurstFilter
+      scheduler_driver = nova.scheduler.filter_scheduler.FilterScheduler
+      scheduler_available_filters = nova.scheduler.filters.all_filters
+      scheduler_default_filters = RetryFilter, AvailabilityZoneFilter, RamFilter, ComputeFilter, ComputeCapabilitiesFilter, ImagePropertiesFilter, ServerGroupAntiAffinityFilter, ServerGroupAffinityFilter, CloudBurstFilter
 4. Restart nova-api, nova-compute and nova-scheduler services for the filter to take effect.
 
 ### What's supported!
@@ -104,17 +104,17 @@ The driver should now be loaded. The contents of the repository is mapped to `/o
 
 ###License 
 
-        Copyright (c) 2014 ThoughtWorks
-        All Rights Reserved.
+  Copyright (c) 2014 ThoughtWorks
+  All Rights Reserved.
 
-        Licensed under the Apache License, Version 2.0 (the "License"); you may
-        not use this file except in compliance with the License. You may obtain
-        a copy of the License at
+  Licensed under the Apache License, Version 2.0 (the "License"); you may
+  not use this file except in compliance with the License. You may obtain
+  a copy of the License at
 
-             http://www.apache.org/licenses/LICENSE-2.0
+     http://www.apache.org/licenses/LICENSE-2.0
 
-        Unless required by applicable law or agreed to in writing, software
-        distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-        WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-        License for the specific language governing permissions and limitations
-        under the License.
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+  License for the specific language governing permissions and limitations
+  under the License.
