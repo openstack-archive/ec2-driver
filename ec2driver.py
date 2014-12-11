@@ -29,6 +29,7 @@ from ec2_rule_service import EC2RuleService
 from ec2_rule_transformer import EC2RuleTransformer
 
 from ec2driver_config import *
+from nova.i18n import _
 from nova import block_device
 from nova.compute import power_state
 from nova.compute import task_states
