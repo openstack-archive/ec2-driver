@@ -1,0 +1,8 @@
+Verified+2: Jenkins
+Code-Review+2: Kashyap Kopparam <kashyapk@thoughtworks.com>
+Workflow+1: Kashyap Kopparam <kashyapk@thoughtworks.com>
+Submitted-by: Jenkins
+Submitted-at: Thu, 11 Dec 2014 10:18:26 +0000
+Reviewed-on: https://review.openstack.org/141000
+Project: stackforge/ec2-driver
+Branch: refs/heads/master
