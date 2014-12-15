@@ -25,6 +25,7 @@ secure = True
 aws_ami = "ami-785bae10"
 #aws_ami = "ami-864d84ee"
 instance_type = "t2.micro"
+ec2_subnet_id = "subnet-e713cdbe"
 
 # Mapping OpenStack's flavor IDs(which seems to be randomly assigned) to EC2's flavor names
 flavor_map = {2: 't2.micro', 5: 't2.small', 1: 't2.medium', 3: 'c3.xlarge', 4: 'c3.2xlarge'}

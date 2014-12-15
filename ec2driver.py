@@ -242,7 +242,7 @@ class EC2Driver(driver.ComputeDriver):
         if user_data:
             user_data = base64.b64decode(user_data)
 
-        reservation = self.ec2_conn.run_instances(aws_ami, instance_type=flavor_type, placement="us-east-1d",
+        reservation = self.ec2_conn.run_instances(aws_ami, instance_type=flavor_type, subnet_id=ec2_subnet_id,
                                                   user_data=user_data)
         ec2_instance = reservation.instances
 
