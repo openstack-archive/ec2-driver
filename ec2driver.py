@@ -801,7 +801,7 @@ class EC2Driver(driver.ComputeDriver):
     def check_can_live_migrate_source(self, ctxt, instance_ref,
                                       dest_check_data):
         return
-
+    #ToDo - seems to be broken on Juno, need to be fixed.
     def finish_migration(self, context, migration, instance, disk_info,
                          network_info, image_meta, resize_instance,
                          block_device_info=None, power_on=True):
