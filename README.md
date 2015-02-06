@@ -32,7 +32,11 @@ as a hypervisor while continuing to be able to manage the existing private cloud
         ec2_secret_access_key = <your_aws_secret_access_key>
         ec2_access_key_id = <your_aws_access_key_id>
 4. `ec2driver_standard_config.py` can be edited to configure the default AMI, AWS region and endpoints. 
-5. Restart the nova-compute service. You are now all set cloud burst! 
+5. Restart the nova-compute service. You are now all set cloud burst!
+ 
+To see it in action, [watch this video](https://www.youtube.com/watch?v=DiMbp9go-To)
+
+[![ScreenShot](https://github.com/stackforge/ec2-driver/blob/master/img/hybrid_cloud.png)](https://www.youtube.com/watch?v=DiMbp9go-To)
 
 ## Multi-node hybrid cloud
 This will enable a hybrid cloud infrastucture using this driver on one of the multiple compute-hosts. Follow the Quick setup to install the EC2 Driver on a (psuedo) compute-host in it's own availability zone. 
@@ -49,6 +53,7 @@ This will enable a hybrid cloud infrastucture using this driver on one of the mu
         scheduler_available_filters = nova.scheduler.filters.all_filters
         scheduler_default_filters = RetryFilter, AvailabilityZoneFilter, RamFilter, ComputeFilter, ComputeCapabilitiesFilter, ImagePropertiesFilter, ServerGroupAntiAffinityFilter, ServerGroupAffinityFilter, CloudBurstFilter
 4. Restart nova-api, nova-compute and nova-scheduler services for the filter to take effect.
+
 
 ### What's supported!
 - Launch
