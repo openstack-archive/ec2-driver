@@ -1,0 +1,8 @@
+Verified+2: Jenkins
+Code-Review+2: Venu Murthy <venu.murthy@thoughtworks.com>
+Workflow+1: Venu Murthy <venu.murthy@thoughtworks.com>
+Submitted-by: Jenkins
+Submitted-at: Fri, 06 Feb 2015 05:41:35 +0000
+Reviewed-on: https://review.openstack.org/153468
+Project: stackforge/ec2-driver
+Branch: refs/heads/master
