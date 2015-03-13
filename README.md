@@ -7,8 +7,12 @@ by bursting to the public cloud for extra capacity.
 
 For now we are focusing on being able to burst to Amazon EC2.
 
-This driver will provide the level of abstraction that is required for OpenStack Dashboard or APIs to use Amazon EC2 
-as a hypervisor while continuing to be able to manage the existing private cloud. 
+Whether you are using the 
+OpenStack native Dashboard—Horizon
+Or Command Line Interface (CLI) 
+Or OpenStack APIs
+Or Orchestrating using Heat
+this Driver will provide the level of abstraction that is required to treat Amazon EC2 or any public cloud service provider as just another hypervisor with unlimited resources. 
 
 ## Getting Started
 
