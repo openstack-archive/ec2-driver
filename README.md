@@ -1,14 +1,19 @@
 # ThoughtWorks OpenStack to EC2 Driver
 
-Thank you for your interest in this project. This is a ThoughtWorks internal R&D project to make Hybrid cloud real!
-So that enterprises can enjoy the benefits of the private cloud without being limited by it. 
-In the event of all the Private cloud resources being utilised to their maximum capacity, the traffic can be managed 
-by bursting to the public cloud for extra capacity. 
+Thank you for your interest in this project. 
+This is a ThoughtWorks internal R&D project to make Hybrid cloud real using OpenStack!
+Using this enterprises can enjoy the benefits of the private cloud without being limited by it. 
+In the event of all the Private cloud resources being utilised to their maximum capacity, the traffic can be managed by bursting to the public cloud for extra capacity. 
 
 For now we are focusing on being able to burst to Amazon EC2.
 
-This driver will provide the level of abstraction that is required for OpenStack Dashboard or APIs to use Amazon EC2 
-as a hypervisor while continuing to be able to manage the existing private cloud. 
+Whether you are using the 
+OpenStack native Dashboard—Horizon
+Or Command Line Interface (CLI) 
+Or OpenStack APIs
+Or Orchestrating using Heat
+this Driver will provide the level of abstraction that is required to treat Amazon EC2 or any public cloud service provider as just another hypervisor with unlimited resources. 
+
 
 ## Getting Started
 
