@@ -632,6 +632,10 @@ class EC2Driver(driver.ComputeDriver):
                 'port': 6969}
 
     def get_spice_console(self, instance):
+        """ Simple Protocol for Independent Computing Environments
+        Doesn't seem to be supported by AWS EC2 directly
+        """
+
         return {'internal_access_path': 'EC2',
                 'host': 'EC2spiceconsole.com',
                 'port': 6969,
@@ -738,7 +742,7 @@ class EC2Driver(driver.ComputeDriver):
         LOG.info("************** REFRESH INSTANCE SECURITY RULES ******************")
         LOG.info(instance)
 
-        # TODO: lock for case when group is associated with multiple instances [Cameron & Ed]
+        # TODO: lock for case when group is associated with multiple instances
 
         self.instance_rule_refresher.refresh(self.nova.servers.get(instance['id']))
 
