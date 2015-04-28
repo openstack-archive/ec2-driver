@@ -114,7 +114,7 @@ The driver should now be loaded. The contents of the repository is mapped to `/o
 
 ###License
 
-    Copyright (c) 2014 ThoughtWorks
+    Copyright (c) 2015 ThoughtWorks
     All Rights Reserved.
 
     Licensed under the Apache License, Version 2.0 (the "License"); you may
