@@ -14,7 +14,6 @@ Or OpenStack APIs
 Or Orchestrating using Heat
 this Driver will provide the level of abstraction that is required to treat Amazon EC2 or any public cloud service provider as just another hypervisor with unlimited resources. 
 
-
 ## Getting Started
 
 - OpenStack Icehouse/Juno installed
@@ -42,6 +41,8 @@ this Driver will provide the level of abstraction that is required to treat Amaz
 To see it in action, [watch this video](https://www.youtube.com/watch?v=DiMbp9go-To)
 
 [![ScreenShot](https://github.com/stackforge/ec2-driver/blob/master/img/hybrid_cloud.png)](https://www.youtube.com/watch?v=DiMbp9go-To)
+
+We were honoured to present this at the OpenStack summit 2015, you can [watch the video here.](https://www.youtube.com/watch?v=RSC0OYrJey8)
 
 ## Multi-node hybrid cloud
 This will enable a hybrid cloud infrastucture using this driver on one of the multiple compute-hosts. Follow the Quick setup to install the EC2 Driver on a (psuedo) compute-host in it's own availability zone. 
@@ -114,7 +115,7 @@ The driver should now be loaded. The contents of the repository is mapped to `/o
 
 ###License
 
-    Copyright (c) 2014 ThoughtWorks
+    Copyright (c) 2015 ThoughtWorks
     All Rights Reserved.
 
     Licensed under the Apache License, Version 2.0 (the "License"); you may
