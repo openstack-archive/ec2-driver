@@ -1,4 +1,4 @@
 [gerrit]
 host=review.openstack.org
 port=29418
-project=stackforge/ec2-driver.git
+project=openstack/ec2-driver.git
